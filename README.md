@@ -23,11 +23,11 @@ fdfs_client.exceptions.ResponseError: [-] Error: Tracker response length is inva
 ## Install
 
 ```bash
-pip install git+http://github.com/waketzheng/fastdfs-client-python#egg=fdfs-client
+pip install git+http://github.com/waketzheng/fastdfs-client-python@1.0.1#egg=fdfs-client
 ```
 - Or
 ```bash
-pip install git+ssh://git@github.com/waketzheng/fastdfs-client-python#egg=fdfs-client
+pip install git+ssh://git@github.com/waketzheng/fastdfs-client-python@1.0.1#egg=fdfs-client
 ```
 
 ## Usage
