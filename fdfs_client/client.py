@@ -47,10 +47,11 @@ class Fdfs_client(object):
     '''
 
     def __init__(self, trackers, poolclass=ConnectionPool):
+        if isinstance(trackers, str):
+            trackers = get_tracker_conf(trackers)
         self.trackers = trackers
         self.tracker_pool = poolclass(**self.trackers)
         self.timeout = self.trackers['timeout']
-        return None
 
     def __del__(self):
         try:
