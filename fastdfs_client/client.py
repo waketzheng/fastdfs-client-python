@@ -1,4 +1,5 @@
 import os
+from typing import TypedDict, cast
 
 from .connection import ConnectionPool
 from .exceptions import DataError, ResponseError
@@ -6,6 +7,30 @@ from .protols import STORAGE_SET_METADATA_FLAG_OVERWRITE
 from .storage_client import StorageClient
 from .tracker_client import TrackerClient
 from .utils import FastdfsConfigParser, fdfs_check_file, logger, split_remote_fileid
+
+
+class ConfigDict(TypedDict):
+    host_tuple: tuple[str, ...]
+    port: int
+    timeout: int
+
+
+class Config:
+    port = 22122
+    timeout = 30
+
+    @classmethod
+    def create(
+        cls,
+        hosts: tuple[str, ...],
+        port: int | None = None,
+        timeout: int | None = None,
+    ) -> ConfigDict:
+        return {
+            "host_tuple": hosts,
+            "port": port or cls.port,
+            "timeout": timeout or cls.timeout,
+        }
 
 
 def get_tracker_conf(conf_path="client.conf") -> dict:
@@ -39,12 +64,20 @@ class FastdfsClient:
     connection pool to manage connection to server.
     """
 
-    def __init__(self, trackers, poolclass=ConnectionPool):
+    def __init__(
+        self,
+        trackers: str | dict | tuple[str, ...] | ConfigDict,
+        poolclass=ConnectionPool,
+        ip_mapping: dict[str, str] | None = None,
+    ):
         if isinstance(trackers, str):
             trackers = get_tracker_conf(trackers)
-        self.trackers = trackers
+        elif isinstance(trackers, tuple):
+            trackers = Config.create(cast(tuple[str, ...], trackers))
+        self.trackers = cast(dict, trackers)
         self.tracker_pool = poolclass(**self.trackers)
         self.timeout = self.trackers["timeout"]
+        self.ip_mapping = ip_mapping
 
     def __del__(self):
         try:
@@ -53,7 +86,39 @@ class FastdfsClient:
         except Exception as e:
             logger.debug(f"Failed to destroy: {e}")
 
-    def upload_by_filename(self, filename, meta_dict=None):
+    def upload_as_url(self, content: bytes, suffix="jpg") -> str:
+        """Upload file content, if success return a URL
+
+        :param content: bytes type of file content
+        :param suffix: this will add at the end of URL with a dot before it
+
+        Example::
+        ```py
+        from pathlib import Path
+        from fastdfs_client import FastdfsClient
+
+        client = FastdfsClient(
+            trackers=('120.7.7.3',),
+            ip_mapping={'120.7.7.3': 'https://example.com'}
+        )
+        p = Path('a.jpg')
+        ret = client.upload_as_url(p.read_bytes(), p.suffix)
+        print(ret)
+        # https://example.com/group1/M00/00/00/eE0vIWZEgMCAFnaMAAABXbxaFk89563.py
+        ```
+        """
+        res = self.upload_by_buffer(content, suffix.lstrip("."))
+        uri_path = res["Remote file_id"]  # 'group1/M00/00/00/eE..R458.jpg'
+        storage_ip = res["Storage IP"]
+        if h := (self.ip_mapping or {}).get(storage_ip):
+            if not h.endswith("/"):
+                h += "/"
+            if not h.startswith("http"):
+                h = "http://" + h
+        host = h or f"http://{storage_ip}/"
+        return host + uri_path
+
+    def upload_by_filename(self, filename: str, meta_dict=None) -> dict:
         """
         Upload a file to Storage server.
         arguments:
@@ -90,7 +155,9 @@ class FastdfsClient:
         store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)
         return store.storage_upload_by_file(tc, store_serv, filename, meta_dict)
 
-    def upload_by_buffer(self, filebuffer, file_ext_name=None, meta_dict=None):
+    def upload_by_buffer(
+        self, filebuffer: bytes, file_ext_name=None, meta_dict=None
+    ) -> dict:
         """
         Upload a buffer to Storage server.
         arguments:
