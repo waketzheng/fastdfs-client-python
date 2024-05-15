@@ -1,8 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# filename: exceptions.py
-
-'''Core exceptions raised by fdfs client'''
+"""Core exceptions raised by fastdfs client"""
 
 
 class FDFSError(Exception):
@@ -22,4 +18,12 @@ class InvaildResponse(FDFSError):
 
 
 class DataError(FDFSError):
+    pass
+
+
+class ParsingError(FDFSError):
+    pass
+
+
+class MissingSectionHeaderError(FDFSError):
     pass

@@ -1,13 +1,25 @@
 [tool.poetry]
-name = "fdfs-client"
-version = "1.0.1"
+name = "fastdfs-client"
+version = "1.1.0"
 description = ""
 authors = ["Waket Zheng <waketzheng@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.10"
 
+
+[tool.poetry.group.dev.dependencies]
+fast-dev-cli = {extras = ["all"], version = "^0.7.3"}
+pre-commit = "^3.7.1"
+
+[tool.mypy]
+pretty = true
+ignore_missing_imports = true
+check_untyped_defs = true
+
+[tool.ruff.lint.per-file-ignores]
+"*_test.py" = ["E401", "E402", "F403", "F405"]
 
 [build-system]
 requires = ["poetry-core"]
