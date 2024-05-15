@@ -1,5 +1,13 @@
 # fastdfs-client-python
+![Python Versions](https://img.shields.io/pypi/pyversions/fastdfs-client)
+[![LatestVersionInPypi](https://img.shields.io/pypi/v/fastdfs-client.svg?style=flat)](https://pypi.python.org/pypi/fastdfs-client)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+![Mypy coverage](https://img.shields.io/badge/mypy-100%25-green.svg)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/pre-commit/pre-commit/main.svg)](https://github.com/pre-commit/pre-commit)
+
 FastDFS Python client
+
+*Manual pass upload test with fastdfs v6.12.1*
 
 ## Motivation
 
