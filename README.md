@@ -9,6 +9,8 @@ FastDFS Python client
 
 *Manual pass upload test with fastdfs v6.12.1*
 
+**English** | [中文](./README.zh.md)
+
 ## Motivation
 
 Base on:
@@ -55,9 +57,9 @@ print(ret)
 {
     "Group name": "group1",
     "Status": "Upload successed.",
-    "Remote file_id": "group1/M00/00/00/wKjzh0_xaR63RExnAAAaDqbNk5E1398.py",
+    "Remote file_id": "group1/M00/00/00/wKjzh0_xaR63RExnAAAaDqbNk5E1398.txt",
     "Uploaded size": "6.0KB",
-    "Local file name": "test.py",
+    "Local file name": "test.txt",
     "Storage IP": "192.168.243.133"
 }
 ```
