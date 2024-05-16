@@ -13,11 +13,13 @@ class ConfigDict(TypedDict):
     host_tuple: tuple[str, ...]
     port: int
     timeout: int
+    name: str
 
 
 class Config:
     port = 22122
     timeout = 30
+    name = "Tracker Pool"
 
     @classmethod
     def create(
@@ -30,6 +32,7 @@ class Config:
             "host_tuple": hosts,
             "port": port or cls.port,
             "timeout": timeout or cls.timeout,
+            "name": cls.name,
         }
 
 
@@ -72,8 +75,8 @@ class FastdfsClient:
     ):
         if isinstance(trackers, str):
             trackers = get_tracker_conf(trackers)
-        elif isinstance(trackers, tuple):
-            trackers = Config.create(cast(tuple[str, ...], trackers))
+        elif isinstance(trackers, tuple | list):
+            trackers = Config.create(tuple(trackers))
         self.trackers = cast(dict, trackers)
         self.tracker_pool = poolclass(**self.trackers)
         self.timeout = self.trackers["timeout"]

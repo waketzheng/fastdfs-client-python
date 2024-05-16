@@ -34,12 +34,14 @@ print(ret)
 ```
 
 ## 说明
-- 代码是在这个[fastdfs-client-py3 1.0.0](https://pypi.org/project/fastdfs-client-py3/)的基础上修改的
+> 代码是在[fastdfs-client-py3 1.0.0](https://pypi.org/project/fastdfs-client-py3/)的基础上修改的：
 1. 类名全部按照pep8规范的要求改成了驼峰
 2. 所有的`from xxx import *`都改成了显式导入
-3. 修复了已知的[TypeError](https://blog.csdn.net/jaket5219999/article/details/138918672)和[ResponseError](https://github.com/happyfish100/fastdfs/issues/679)错误
-4. 使用[ruff](https://github.com/astral-sh/ruff)进行格式化的导入排序
+3. 修复了已知的[TypeError](https://blog.csdn.net/jaket5219999/article/details/138918672)和[ResponseError](https://github.com/happyfish100/fastdfs/issues/679#issuecomment-1872550057)错误
+4. 使用[ruff](https://github.com/astral-sh/ruff)进行格式化和导入排序
 5. 部分函数增加了类型注解，所有代码均通过mypy检查
+6. 增加了client.upload_as_url函数，支持上传二进制后返回完整URL
+7. 扩展了FastdfsClient类的初始化，[直接传IP地址即可](./examples/init_with_ip.py)，无需传入.conf文件
 
 ## 许可证
 

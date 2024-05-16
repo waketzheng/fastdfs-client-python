@@ -14,7 +14,6 @@ FastDFS Python client
 ## Motivation
 
 Base on:
-- [fdfs_client-py 1.2.6](https://pypi.org/project/fdfs_client-py/)
 - [fastdfs-client-py3 1.0.0](https://pypi.org/project/fastdfs-client-py3/)
 
 Fixes:
