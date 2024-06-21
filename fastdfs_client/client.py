@@ -1,6 +1,8 @@
 import os
+import re
+import socket
 from pathlib import Path
-from typing import Annotated, TypedDict, cast
+from typing import Annotated, Type, TypedDict, cast
 
 from .connection import ConnectionPool
 from .exceptions import DataError, ResponseError
@@ -9,9 +11,17 @@ from .storage_client import StorageClient
 from .tracker_client import TrackerClient
 from .utils import FastdfsConfigParser, fdfs_check_file, logger, split_remote_fileid
 
+RE_IP = re.compile(r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
+
+
+def is_ip_v4(value: str) -> bool:
+    return bool(RE_IP.match(value))
+
 
 class ConfigDict(TypedDict):
-    host_tuple: tuple[str, ...]
+    host_tuple: Annotated[
+        tuple[str, ...], "IP or domain, e.g: ('192.168.0.2', 'example.com')"
+    ]
     port: int
     timeout: int
     name: str
@@ -78,7 +88,7 @@ class FastdfsClient:
     def __init__(
         self,
         trackers: TrackersConfType,
-        poolclass=ConnectionPool,
+        poolclass: Type[ConnectionPool] | None = None,
         ip_mapping: dict[str, str] | None = None,
     ):
         if isinstance(trackers, str | Path):
@@ -86,6 +96,8 @@ class FastdfsClient:
         elif isinstance(trackers, tuple | list):
             trackers = Config.create(tuple(trackers))
         self.trackers = cast(dict, trackers)
+        if poolclass is None:
+            poolclass = ConnectionPool
         self.tracker_pool = poolclass(**self.trackers)
         self.timeout = self.trackers["timeout"]
         self.ip_mapping = ip_mapping
@@ -97,7 +109,9 @@ class FastdfsClient:
         except Exception as e:
             logger.debug(f"Failed to destroy: {e}")
 
-    def upload_as_url(self, content: bytes, suffix="jpg") -> str:
+    def upload_as_url(
+        self, content: bytes, suffix="jpg", ssl: bool | None = None
+    ) -> str:
         """Upload file content, if success return a URL
 
         :param content: bytes type of file content
@@ -121,13 +135,29 @@ class FastdfsClient:
         res = self.upload_by_buffer(content, suffix.lstrip("."))
         uri_path = res["Remote file_id"]  # 'group1/M00/00/00/eE..R458.jpg'
         storage_ip = res["Storage IP"]
-        if h := (self.ip_mapping or {}).get(storage_ip):
+        ip_mapping = self.ip_mapping or {}
+        if storage_ip not in ip_mapping:
+            listed_domains = ip_mapping.values()
+            for ip_or_domain in self.trackers["host_tuple"]:
+                if is_ip_v4(ip_or_domain) or ip_or_domain in listed_domains:
+                    continue
+                if self.get_domain_ip(ip_or_domain) == storage_ip:
+                    ip_mapping[storage_ip] = ip_or_domain
+                    break
+        host = f"http://{storage_ip}/"
+        if h := ip_mapping.get(storage_ip):
             if not h.endswith("/"):
                 h += "/"
             if not h.startswith("http"):
-                h = "http://" + h
-        host = h or f"http://{storage_ip}/"
+                scheme = "http" if ssl is False else "https"
+                h = f"{scheme}://" + h
+            host = h
         return host + uri_path
+
+    @staticmethod
+    def get_domain_ip(domain: str) -> str:
+        """Get domain IP by socket: github.com -> 140.82.113.3"""
+        return socket.gethostbyname(domain)
 
     def upload_by_filename(self, filename: str, meta_dict=None) -> dict:
         """
