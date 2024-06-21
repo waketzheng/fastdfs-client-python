@@ -78,22 +78,21 @@ def tcp_send_file_ex(conn, filename, buffer_size=4096):
     @filename: string
     @return long, sended size
     """
-    if "linux" not in sys.platform.lower():
+    if sys.platform.lower().startswith("win"):
         raise DataError("[-] Error: 'sendfile' system call only available on linux.")
-    nbytes = 0
-    offset = 0
+    nbytes = offset = 0
     sock_fd = conn.get_sock().fileno()
     with open(filename, "rb") as f:
         in_fd = f.fileno()
         while 1:
             try:
-                # TODO: use for loop to replace while
-                sent = tcp_send_data(sock_fd, in_fd, offset, buffer_size)  # type:ignore
+                logger.debug(f"{nbytes = };{offset = };{sock_fd = };{in_fd = }")
+                raise NotImplementedError("sendfile not ready yet.")
                 # sent = sendfile(sock_fd, in_fd, offset, buffer_size)
-                if 0 == sent:
-                    break
-                nbytes += sent
-                offset += sent
+                # if 0 == sent:
+                #     break
+                # nbytes += sent
+                # offset += sent
             except OSError as e:
                 if e.errno == errno.EAGAIN:
                     continue
@@ -330,15 +329,26 @@ class StorageClient:
     def storage_upload_by_filename(
         self, tracker_client, store_serv, filename, meta_dict=None
     ):
-        file_size = os.stat(filename).st_size
-        file_ext_name = get_file_ext_name(filename)
+        upload_type = FDFS_UPLOAD_BY_FILENAME
+        return self._upload_it(
+            tracker_client, store_serv, filename, meta_dict, upload_type
+        )
+
+    def _upload_it(
+        self, tracker_client, store_serv, file, meta, upload_type, file_ext_name=None
+    ):
+        if isinstance(file, str):
+            size = os.stat(file).st_size
+            file_ext_name = get_file_ext_name(file)
+        else:
+            size = len(file)
         return self._storage_do_upload_file(
             tracker_client,
             store_serv,
-            filename,
-            file_size,
-            FDFS_UPLOAD_BY_FILENAME,
-            meta_dict,
+            file,
+            size,
+            upload_type,
+            meta,
             STORAGE_PROTO_CMD_UPLOAD_FILE,
             None,
             None,
@@ -348,19 +358,9 @@ class StorageClient:
     def storage_upload_by_file(
         self, tracker_client, store_serv, filename, meta_dict=None
     ):
-        file_size = os.stat(filename).st_size
-        file_ext_name = get_file_ext_name(filename)
-        return self._storage_do_upload_file(
-            tracker_client,
-            store_serv,
-            filename,
-            file_size,
-            FDFS_UPLOAD_BY_FILE,
-            meta_dict,
-            STORAGE_PROTO_CMD_UPLOAD_FILE,
-            None,
-            None,
-            file_ext_name,
+        upload_type = FDFS_UPLOAD_BY_FILE
+        return self._upload_it(
+            tracker_client, store_serv, filename, meta_dict, upload_type
         )
 
     def storage_upload_by_buffer(
@@ -371,17 +371,13 @@ class StorageClient:
         file_ext_name=None,
         meta_dict=None,
     ):
-        buffer_size = len(file_buffer)
-        return self._storage_do_upload_file(
+        upload_type = FDFS_UPLOAD_BY_BUFFER
+        return self._upload_it(
             tracker_client,
             store_serv,
             file_buffer,
-            buffer_size,
-            FDFS_UPLOAD_BY_BUFFER,
             meta_dict,
-            STORAGE_PROTO_CMD_UPLOAD_FILE,
-            None,
-            None,
+            upload_type,
             file_ext_name,
         )
 

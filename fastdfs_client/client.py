@@ -90,7 +90,8 @@ class FastdfsClient:
         trackers: TrackersConfType,
         poolclass: Type[ConnectionPool] | None = None,
         ip_mapping: dict[str, str] | None = None,
-    ):
+        ssl: bool = True,
+    ) -> None:
         if isinstance(trackers, str | Path):
             trackers = get_tracker_conf(str(trackers))
         elif isinstance(trackers, tuple | list):
@@ -101,17 +102,16 @@ class FastdfsClient:
         self.tracker_pool = poolclass(**self.trackers)
         self.timeout = self.trackers["timeout"]
         self.ip_mapping = ip_mapping
+        self.ssl = ssl
 
-    def __del__(self):
+    def __del__(self) -> None:
         try:
             self.pool.destroy()  # type:ignore
-            self.pool = None
+            self.pool = None  # pragma: no cover
         except Exception as e:
             logger.debug(f"Failed to destroy: {e}")
 
-    def upload_as_url(
-        self, content: bytes, suffix="jpg", ssl: bool | None = None
-    ) -> str:
+    def upload_as_url(self, content: bytes, suffix="jpg") -> str:
         """Upload file content, if success return a URL
 
         :param content: bytes type of file content
@@ -134,7 +134,9 @@ class FastdfsClient:
         """
         res = self.upload_by_buffer(content, suffix.lstrip("."))
         uri_path = res["Remote file_id"]  # 'group1/M00/00/00/eE..R458.jpg'
-        storage_ip = res["Storage IP"]
+        return self._build_host(res["Storage IP"]) + uri_path
+
+    def _build_host(self, storage_ip: str) -> str:
         ip_mapping = self.ip_mapping or {}
         if storage_ip not in ip_mapping:
             listed_domains = ip_mapping.values()
@@ -144,15 +146,14 @@ class FastdfsClient:
                 if self.get_domain_ip(ip_or_domain) == storage_ip:
                     ip_mapping[storage_ip] = ip_or_domain
                     break
-        host = f"http://{storage_ip}/"
         if h := ip_mapping.get(storage_ip):
             if not h.endswith("/"):
                 h += "/"
             if not h.startswith("http"):
-                scheme = "http" if ssl is False else "https"
+                scheme = "https" if self.ssl else "http"
                 h = f"{scheme}://" + h
-            host = h
-        return host + uri_path
+            return h
+        return f"http://{storage_ip}/"
 
     @staticmethod
     def get_domain_ip(domain: str) -> str:
@@ -179,18 +180,19 @@ class FastdfsClient:
             'Storage IP'      : storage_ip
         } if success else None
         """
-        isfile, errmsg = fdfs_check_file(filename)
-        if not isfile:
-            raise DataError(errmsg + "(uploading)")
+        self._check_file(filename)
         tc = TrackerClient(self.tracker_pool)
         store_serv = tc.tracker_query_storage_stor_without_group()
         store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)
         return store.storage_upload_by_filename(tc, store_serv, filename, meta_dict)
 
-    def upload_by_file(self, filename, meta_dict=None):
+    def _check_file(self, filename, info="(uploading)") -> None:
         isfile, errmsg = fdfs_check_file(filename)
         if not isfile:
-            raise DataError(errmsg + "(uploading)")
+            raise DataError(errmsg + info)
+
+    def upload_by_file(self, filename, meta_dict=None):
+        self._check_file(filename)
         tc = TrackerClient(self.tracker_pool)
         store_serv = tc.tracker_query_storage_stor_without_group()
         store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)
@@ -251,9 +253,7 @@ class FastdfsClient:
             'Storage IP'      : storage_ip
         }
         """
-        isfile, errmsg = fdfs_check_file(filename)
-        if not isfile:
-            raise DataError(errmsg + "(uploading slave)")
+        self._check_file(filename, "(uploading slave)")
         tmp = split_remote_fileid(remote_file_id)
         if not tmp:
             raise DataError("[-] Error: remote_file_id is invalid.(uploading slave)")
@@ -296,9 +296,7 @@ class FastdfsClient:
             'Storage IP'      : storage_ip
         }
         """
-        isfile, errmsg = fdfs_check_file(filename)
-        if not isfile:
-            raise DataError(errmsg + "(uploading slave)")
+        self._check_file(filename, "(uploading slave)")
         tmp = split_remote_fileid(remote_file_id)
         if not tmp:
             raise DataError("[-] Error: remote_file_id is invalid.(uploading slave)")
@@ -312,8 +310,9 @@ class FastdfsClient:
             ret_dict = store.storage_upload_slave_by_file(
                 tc, store_serv, filename, prefix_name, remote_filename, meta_dict=None
             )
-        except:
-            raise
+        except Exception as e:
+            logger.exception(e)
+            raise DataError(str(e))
         ret_dict["Status"] = "Upload slave file successed."
         return ret_dict
 
@@ -372,9 +371,7 @@ class FastdfsClient:
             'Storage IP'      : storage_ip
         } if success else None
         """
-        isfile, errmsg = fdfs_check_file(local_filename)
-        if not isfile:
-            raise DataError(errmsg + "(uploading appender)")
+        self._check_file(local_filename, "(uploading appender)")
         tc = TrackerClient(self.tracker_pool)
         store_serv = tc.tracker_query_storage_stor_without_group()
         store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)
@@ -402,9 +399,7 @@ class FastdfsClient:
             'Storage IP'      : storage_ip
         } if success else None
         """
-        isfile, errmsg = fdfs_check_file(local_filename)
-        if not isfile:
-            raise DataError(errmsg + "(uploading appender)")
+        self._check_file(local_filename, "(uploading appender)")
         tc = TrackerClient(self.tracker_pool)
         store_serv = tc.tracker_query_storage_stor_without_group()
         store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)
@@ -602,9 +597,7 @@ class FastdfsClient:
         return ret_dict
 
     def append_by_filename(self, local_filename, remote_fileid):
-        isfile, errmsg = fdfs_check_file(local_filename)
-        if not isfile:
-            raise DataError(errmsg + "(append)")
+        self._check_file(local_filename, "(append)")
         tmp = split_remote_fileid(remote_fileid)
         if not tmp:
             raise DataError("[-] Error: remote_file_id is invalid.(append)")
@@ -617,9 +610,7 @@ class FastdfsClient:
         )
 
     def append_by_file(self, local_filename, remote_fileid):
-        isfile, errmsg = fdfs_check_file(local_filename)
-        if not isfile:
-            raise DataError(errmsg + "(append)")
+        self._check_file(local_filename, "(append)")
         tmp = split_remote_fileid(remote_fileid)
         if not tmp:
             raise DataError("[-] Error: remote_file_id is invalid.(append)")
@@ -680,9 +671,7 @@ class FastdfsClient:
             'Storage IP' : storage_ip
         }
         """
-        isfile, errmsg = fdfs_check_file(filename)
-        if not isfile:
-            raise DataError(errmsg + "(modify)")
+        self._check_file(filename, "(modify)")
         filesize = os.stat(filename).st_size
         tmp = split_remote_fileid(appender_fileid)
         if not tmp:
@@ -711,9 +700,7 @@ class FastdfsClient:
             'Storage IP' : storage_ip
         }
         """
-        isfile, errmsg = fdfs_check_file(filename)
-        if not isfile:
-            raise DataError(errmsg + "(modify)")
+        self._check_file(filename, "(modify)")
         filesize = os.stat(filename).st_size
         tmp = split_remote_fileid(appender_fileid)
         if not tmp:

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from fastdfs_client.client import Config, FastdfsClient, get_tracker_conf, is_ip_v4
-from fastdfs_client.exceptions import ConfigError
+from fastdfs_client.exceptions import ConfigError, DataError
 
 
 def test_ip():
@@ -53,6 +53,23 @@ def test_conf_string():
     )
 
 
+def test_build_host():
+    domain = "dfs.waketzheng.top"
+    ip = "120.77.47.33"
+    client = FastdfsClient([domain])
+    client._build_host(ip) == f"https://{domain}/"
+    client2 = FastdfsClient([domain], ssl=False)
+    client2._build_host(ip) == f"http://{domain}/"
+    client3 = FastdfsClient([ip], ssl=False)
+    client3._build_host(ip) == f"http://{ip}/"
+    client4 = FastdfsClient([ip])
+    client4._build_host(ip) == f"http://{ip}/"
+    client5 = FastdfsClient([ip], ip_mapping={ip: domain})
+    client5._build_host(ip) == f"https://{domain}/"
+    client6 = FastdfsClient([domain], ip_mapping={ip: domain})
+    client6._build_host(ip) == f"https://{domain}/"
+
+
 def test_upload_url():
     to_upload = Path(__file__)
     domain = "dfs.waketzheng.top"
@@ -64,6 +81,8 @@ def test_upload_url():
     remote_file_id = url.split("://")[-1].split("/", 1)[-1]
     r = client.delete_file(remote_file_id)
     assert "success" in str(r)
+    with pytest.raises(DataError):
+        client._check_file(str(to_upload.parent))
 
 
 def test_upload_filename():
@@ -75,3 +94,12 @@ def test_upload_filename():
     assert ret["Local file name"] in __file__
     r = client.delete_file(remote_file_id)
     assert remote_file_id in str(r)
+    with pytest.raises(DataError):
+        client.upload_by_filename(str(Path(__file__).parent))
+
+
+def test_upload_file():
+    domain = "dfs.waketzheng.top"
+    client = FastdfsClient([domain])
+    with pytest.raises(NotImplementedError):
+        client.upload_by_file(__file__)
