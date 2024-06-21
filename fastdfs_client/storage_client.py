@@ -523,6 +523,8 @@ class StorageClient:
         th.cmd = STORAGE_PROTO_CMD_DELETE_FILE
         file_name_len = len(remote_filename)
         th.pkg_len = FDFS_GROUP_NAME_MAX_LEN + file_name_len
+        if isinstance(remote_filename, str):
+            remote_filename = remote_filename.encode()
         try:
             th.send_header(store_conn)
             # del_fmt: |-group_name(16)-filename(len)-|

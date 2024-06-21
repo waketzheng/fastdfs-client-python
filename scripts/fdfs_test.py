@@ -3,14 +3,8 @@ import os
 import sys
 import time
 
-try:
-    from .client import *
-    from .exceptions import *
-except ImportError:
-    import_path = os.path.abspath("../")
-    sys.path.append(import_path)
-    from .client import *
-    from .exceptions import *
+from fastdfs_client.client import *
+from fastdfs_client.exceptions import *
 
 
 def usage() -> None:

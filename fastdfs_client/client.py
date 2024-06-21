@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Annotated, Type, TypedDict, cast
 
 from .connection import ConnectionPool
-from .exceptions import DataError, ResponseError
+from .exceptions import ConfigError, DataError, ResponseError
 from .protols import STORAGE_SET_METADATA_FLAG_OVERWRITE
 from .storage_client import StorageClient
 from .tracker_client import TrackerClient
@@ -66,7 +66,7 @@ def get_tracker_conf(conf_path="client.conf") -> dict:
         tracker["name"] = "Tracker Pool"
     except Exception as e:
         logger.exception(e)
-        raise e
+        raise ConfigError(str(e))
     return tracker
 
 
@@ -92,7 +92,7 @@ class FastdfsClient:
         ip_mapping: dict[str, str] | None = None,
     ):
         if isinstance(trackers, str | Path):
-            trackers = get_tracker_conf(trackers)
+            trackers = get_tracker_conf(str(trackers))
         elif isinstance(trackers, tuple | list):
             trackers = Config.create(tuple(trackers))
         self.trackers = cast(dict, trackers)

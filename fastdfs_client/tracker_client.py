@@ -547,7 +547,7 @@ class TrackerClient:
         th.send_header(conn)
         # query_fmt: |-group_name(16)-filename(file_name_len)-|
         query_fmt = "!%ds %ds" % (FDFS_GROUP_NAME_MAX_LEN, file_name_len)
-        send_buffer = struct.pack(query_fmt, group_name, filename)
+        send_buffer = struct.pack(query_fmt, group_name.encode(), filename.encode())
         try:
             tcp_send_data(conn, send_buffer)
             th.recv_header(conn)

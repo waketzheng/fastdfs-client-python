@@ -5,6 +5,10 @@ class FDFSError(Exception):
     pass
 
 
+class ConfigError(FDFSError):
+    pass
+
+
 class ConnectionError(FDFSError):
     pass
 
