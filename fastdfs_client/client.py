@@ -1,5 +1,6 @@
 import os
-from typing import TypedDict, cast
+from pathlib import Path
+from typing import Annotated, TypedDict, cast
 
 from .connection import ConnectionPool
 from .exceptions import DataError, ResponseError
@@ -59,6 +60,13 @@ def get_tracker_conf(conf_path="client.conf") -> dict:
     return tracker
 
 
+TrackersConfType = (
+    Annotated[str | Path, "filename of trackers.conf"]
+    | Annotated[dict | ConfigDict, "Config of trackers"]
+    | Annotated[tuple[str, ...] | list[str], "IP list or domain list"]
+)
+
+
 class FastdfsClient:
     """
     Class FastdfsClient implemented Fastdfs client protol V6.12
@@ -69,11 +77,11 @@ class FastdfsClient:
 
     def __init__(
         self,
-        trackers: str | dict | tuple[str, ...] | ConfigDict,
+        trackers: TrackersConfType,
         poolclass=ConnectionPool,
         ip_mapping: dict[str, str] | None = None,
     ):
-        if isinstance(trackers, str):
+        if isinstance(trackers, str | Path):
             trackers = get_tracker_conf(trackers)
         elif isinstance(trackers, tuple | list):
             trackers = Config.create(tuple(trackers))
