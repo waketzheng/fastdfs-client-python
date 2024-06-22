@@ -103,3 +103,18 @@ def test_upload_file():
     client = FastdfsClient([domain])
     with pytest.raises(NotImplementedError):
         client.upload_by_file(__file__)
+
+
+def test_download(tmp_path: Path):
+    domain = "dfs.waketzheng.top"
+    client = FastdfsClient([domain])
+    with pytest.raises(DataError):
+        client.download_to_file(tmp_path / "localfile", "not-exist-remote-file-id")
+    to_upload = Path(__file__)
+    ret = client.upload_by_filename(to_upload)
+    remote_file_id = ret["Remote file_id"]
+    temp_file = tmp_path / "foo"
+    r = client.download_to_file(temp_file, remote_file_id)
+    assert r["Content"] == temp_file
+    assert temp_file.read_bytes() == to_upload.read_bytes()
+    client.delete_file(remote_file_id)

@@ -160,7 +160,7 @@ class FastdfsClient:
         """Get domain IP by socket: github.com -> 140.82.113.3"""
         return socket.gethostbyname(domain)
 
-    def upload_by_filename(self, filename: str, meta_dict=None) -> dict:
+    def upload_by_filename(self, filename: str | Path, meta_dict=None) -> dict:
         """
         Upload a file to Storage server.
         arguments:
@@ -184,7 +184,9 @@ class FastdfsClient:
         tc = TrackerClient(self.tracker_pool)
         store_serv = tc.tracker_query_storage_stor_without_group()
         store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)
-        return store.storage_upload_by_filename(tc, store_serv, filename, meta_dict)
+        return store.storage_upload_by_filename(
+            tc, store_serv, str(filename), meta_dict
+        )
 
     def _check_file(self, filename, info="(uploading)") -> None:
         isfile, errmsg = fdfs_check_file(filename)

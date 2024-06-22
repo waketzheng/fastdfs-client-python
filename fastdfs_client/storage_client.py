@@ -568,6 +568,8 @@ class StorageClient:
             FDFS_PROTO_PKG_LEN_SIZE * 2 + FDFS_GROUP_NAME_MAX_LEN + remote_filename_len
         )
         th.cmd = STORAGE_PROTO_CMD_DOWNLOAD_FILE
+        if isinstance(remote_filename, str):
+            remote_filename = remote_filename.encode()
         try:
             th.send_header(store_conn)
             # down_fmt: |-offset(8)-download_bytes(8)-group_name(16)-remote_filename(len)-|
@@ -586,8 +588,6 @@ class StorageClient:
                 total_recv_size = tcp_recv_file(store_conn, file_buffer, th.pkg_len)
             elif download_type == FDFS_DOWNLOAD_TO_BUFFER:
                 recv_buffer, total_recv_size = tcp_recv_response(store_conn, th.pkg_len)
-        except:
-            raise
         finally:
             self.pool.release(store_conn)
         ret_dic = {
