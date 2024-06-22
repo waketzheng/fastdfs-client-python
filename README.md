@@ -69,7 +69,7 @@ print(ret)
 from pathlib import Path
 
 p = Path('test.txt')
-url = FastdfsClient("192.168.243.133").upload_as_url(p.read_bytes(), p.suffix)
+url = FastdfsClient(["dfs.waketzheng.top"]).upload_as_url(p.read_bytes(), p.suffix)
 print(url)
-# http://192.168.243.133/group1/M00/00/00/wKjzh0_xaR63RExnAAAaDqbNk5E1398.txt
+# https://dfs.waketzheng.top/group1/M00/00/00/wKjzh0_xaR63RExnAAAaDqbNk5E1398.txt
 ```
