@@ -130,8 +130,8 @@ def del_func():
         remote_file_id = sys.argv[2]
         ret_tuple = client.delete_file(remote_file_id)
         print("[+] %s" % ret_tuple[0])
-        print("[+] remote_fileid: %s" % ret_tuple[1])
-        print("[+] Storage IP: %s" % ret_tuple[2])
+        print("[+] remote_fileid:", ret_tuple[1])
+        print("[+] Storage IP:", ret_tuple[2])
     except (ConnectionError, ResponseError, DataError) as e:
         print(e)
 

@@ -534,8 +534,6 @@ class StorageClient:
             if th.status != 0:
                 raise DataError("Error: %d, %s" % (th.status, os.strerror(th.status)))
                 # recv_buffer, recv_size = tcp_recv_response(store_conn, th.pkg_len)
-        except:
-            raise
         finally:
             self.pool.release(store_conn)
         remote_filename = store_serv.group_name + __os_sep__.encode() + remote_filename

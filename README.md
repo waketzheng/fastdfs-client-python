@@ -66,11 +66,25 @@ print(ret)
 
 ## Advance
 
+- Upload as URL
+
 ```py
 from pathlib import Path
 
 p = Path('test.txt')
-url = FastdfsClient(["dfs.waketzheng.top"]).upload_as_url(p.read_bytes(), p.suffix)
+client = FastdfsClient(["dfs.waketzheng.top"])
+url = client.upload_as_url(p.read_bytes(), p.suffix)
 print(url)
 # https://dfs.waketzheng.top/group1/M00/00/00/wKjzh0_xaR63RExnAAAaDqbNk5E1398.txt
+```
+- Download
+```py
+save_to = 'local.txt'
+client.download_to_file(save_to, 'group1/M00/00/00/wKjzh0_xaR63RExnAAAaDqbNk5E1398.txt')
+```
+- Delete
+```py
+id_or_url = 'https://dfs.waketzheng.top/group1/M00/00/00/wKjzh0_xaR63RExnAAAaDqbNk5E1398.txt'
+# id_or_url = 'group1/M00/00/00/wKjzh0_xaR63RExnAAAaDqbNk5E1398.txt'
+client.delete_file(id_or_url)
 ```

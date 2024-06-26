@@ -434,7 +434,7 @@ class FastdfsClient:
             tc, store_serv, filebuffer, meta_dict, file_ext_name
         )
 
-    def delete_file(self, remote_file_id):
+    def delete_file(self, remote_file_id: str) -> tuple[str, bytes, bytes]:
         """
         Delete a file from Storage server.
         arguments:

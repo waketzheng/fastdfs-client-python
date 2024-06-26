@@ -118,3 +118,19 @@ def test_download(tmp_path: Path):
     assert r["Content"] == temp_file
     assert temp_file.read_bytes() == to_upload.read_bytes()
     client.delete_file(remote_file_id)
+    with pytest.raises(DataError):
+        client.download_to_file(temp_file, remote_file_id)
+
+
+def test_download_by_url(tmp_path: Path):
+    domain = "dfs.waketzheng.top"
+    client = FastdfsClient([domain])
+    to_upload = Path(__file__)
+    url = client.upload_as_url(to_upload.read_bytes(), to_upload.suffix)
+    temp_file = tmp_path / "foo"
+    r = client.download_to_file(temp_file, url)
+    assert r["Content"] == temp_file
+    assert temp_file.read_bytes() == to_upload.read_bytes()
+    client.delete_file(url)
+    with pytest.raises(DataError):
+        client.download_to_file(temp_file, url)

@@ -220,6 +220,8 @@ def split_remote_fileid(remote_file_id: str) -> tuple[str, str] | None:
     @remote_file_id: string
     @return tuple, (group_name, remote_file_name)
     """
+    if (sep := "://") in remote_file_id:
+        remote_file_id = remote_file_id.split(sep)[-1].split("/", 1)[-1]
     if (index := remote_file_id.find("/")) == -1:
         return None
     return (remote_file_id[0:index], remote_file_id[(index + 1) :])
