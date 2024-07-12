@@ -10,7 +10,7 @@ python = "^3.10"
 
 
 [tool.poetry.group.dev.dependencies]
-fast-dev-cli = "^0.8.3"
+fast-dev-cli = "^0.9.1"
 pre-commit = "^3.7.1"
 
 [tool.mypy]
