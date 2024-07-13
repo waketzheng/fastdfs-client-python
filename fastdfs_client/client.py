@@ -1,6 +1,8 @@
 import os
+import random
 import re
 import socket
+from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Type, TypedDict, cast
 
@@ -14,7 +16,7 @@ from .utils import FastdfsConfigParser, fdfs_check_file, logger, split_remote_fi
 RE_IP = re.compile(r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
 
 
-def is_ip_v4(value: str) -> bool:
+def is_IPv4(value: str) -> bool:
     return bool(RE_IP.match(value))
 
 
@@ -77,7 +79,48 @@ TrackersConfType = (
 )
 
 
-class FastdfsClient:
+class BaseClient:
+    def __init__(
+        self,
+        trackers: TrackersConfType,
+        ip_mapping: Annotated[dict[str, str], "ip: domain"] | None = None,
+        ssl: bool = True,
+    ) -> None:
+        if isinstance(trackers, str | Path):
+            trackers = get_tracker_conf(str(trackers))
+        elif isinstance(trackers, tuple | list):
+            trackers = Config.create(tuple(trackers))
+        self.trackers = cast(dict, trackers)
+        self.timeout = self.trackers["timeout"]
+        self.ip_mapping = ip_mapping
+        self.ssl = ssl
+
+    def _build_host(self, storage_ip: str) -> str:
+        ip_mapping = self.ip_mapping or {}
+        if storage_ip not in ip_mapping:
+            listed_domains = ip_mapping.values()
+            for ip_or_domain in self.trackers["host_tuple"]:
+                if is_IPv4(ip_or_domain) or ip_or_domain in listed_domains:
+                    continue
+                if self.get_domain_ip(ip_or_domain) == storage_ip:
+                    ip_mapping[storage_ip] = ip_or_domain
+                    break
+        if h := ip_mapping.get(storage_ip):
+            if not h.endswith("/"):
+                h += "/"
+            if not h.startswith("http"):
+                scheme = "https" if self.ssl else "http"
+                h = f"{scheme}://" + h
+            return h
+        return f"http://{storage_ip}/"
+
+    @staticmethod
+    def get_domain_ip(domain: str) -> str:
+        """Get domain IP by socket: github.com -> 140.82.113.3"""
+        return socket.gethostbyname(domain)
+
+
+class FastdfsClient(BaseClient):
     """
     Class FastdfsClient implemented Fastdfs client protol V6.12
 
@@ -92,17 +135,10 @@ class FastdfsClient:
         ip_mapping: dict[str, str] | None = None,
         ssl: bool = True,
     ) -> None:
-        if isinstance(trackers, str | Path):
-            trackers = get_tracker_conf(str(trackers))
-        elif isinstance(trackers, tuple | list):
-            trackers = Config.create(tuple(trackers))
-        self.trackers = cast(dict, trackers)
+        super().__init__(trackers, ip_mapping, ssl)
         if poolclass is None:
             poolclass = ConnectionPool
         self.tracker_pool = poolclass(**self.trackers)
-        self.timeout = self.trackers["timeout"]
-        self.ip_mapping = ip_mapping
-        self.ssl = ssl
 
     def __del__(self) -> None:
         try:
@@ -126,7 +162,7 @@ class FastdfsClient:
             trackers=('120.7.7.3',),
             ip_mapping={'120.7.7.3': 'https://example.com'}
         )
-        p = Path('a.jpg')
+        p = Path('a.py')
         ret = client.upload_as_url(p.read_bytes(), p.suffix)
         print(ret)
         # https://example.com/group1/M00/00/00/eE0vIWZEgMCAFnaMAAABXbxaFk89563.py
@@ -135,30 +171,6 @@ class FastdfsClient:
         res = self.upload_by_buffer(content, suffix.lstrip("."))
         uri_path = res["Remote file_id"]  # 'group1/M00/00/00/eE..R458.jpg'
         return self._build_host(res["Storage IP"]) + uri_path
-
-    def _build_host(self, storage_ip: str) -> str:
-        ip_mapping = self.ip_mapping or {}
-        if storage_ip not in ip_mapping:
-            listed_domains = ip_mapping.values()
-            for ip_or_domain in self.trackers["host_tuple"]:
-                if is_ip_v4(ip_or_domain) or ip_or_domain in listed_domains:
-                    continue
-                if self.get_domain_ip(ip_or_domain) == storage_ip:
-                    ip_mapping[storage_ip] = ip_or_domain
-                    break
-        if h := ip_mapping.get(storage_ip):
-            if not h.endswith("/"):
-                h += "/"
-            if not h.startswith("http"):
-                scheme = "https" if self.ssl else "http"
-                h = f"{scheme}://" + h
-            return h
-        return f"http://{storage_ip}/"
-
-    @staticmethod
-    def get_domain_ip(domain: str) -> str:
-        """Get domain IP by socket: github.com -> 140.82.113.3"""
-        return socket.gethostbyname(domain)
 
     def upload_by_filename(self, filename: str | Path, meta_dict=None) -> dict:
         """
@@ -748,3 +760,78 @@ class FastdfsClient:
         return store.storage_modify_by_buffer(
             tc, store_serv, filebuffer, file_offset, filesize, appender_filename
         )
+
+    @property
+    def async_client(self) -> "AsyncDfsClient":
+        return AsyncDfsClient(self.trackers, self.ip_mapping, self.ssl)
+
+    async def upload(self, content: bytes, suffix=".jpg") -> str:
+        return await self.async_client.upload(content, suffix)
+
+    async def delete(self, file: str) -> tuple:
+        return await self.async_client.delete(file)
+
+
+class AsyncDfsClient(BaseClient):
+    @cached_property
+    def domain_ip(self) -> dict[str, str]:
+        return {v.split("://")[-1]: k for k, v in (self.ip_mapping or {}).items()}
+
+    def random_host(self) -> tuple[str, int]:
+        ip_list: list[str] = []
+        for host in self.trackers["host_tuple"]:
+            if not is_IPv4(host):
+                if host in self.domain_ip:
+                    host = self.domain_ip[host]
+                else:
+                    host = self.get_domain_ip(host)
+            ip_list.append(host)
+        if len(ip_list) > 1:
+            host = random.choice(ip_list)
+        return host, self.trackers["port"]
+
+    async def upload(self, content: bytes, suffix=".jpg") -> str:
+        """Upload file content, if success return a URL
+
+        :param content: bytes type of file content
+        :param suffix: this will add at the end of URL with a dot before it
+
+        Example::
+        ```py
+        from pathlib import Path
+        from fastdfs_client import AsyncDfsClient
+
+        client = AsyncDfsClient(['example.com'])
+        url = await client.upload(Path('a.JPEG').read_bytes(), suffix='jpeg')
+        print(url)
+        # https://example.com/group1/M00/00/00/eE0vIWZEgMCAFnaMAAABXbxaFk89563.jpeg
+        ```
+        """
+        tc = TrackerClient(ConnectionPool(**self.trackers))
+        store_serv = await tc.get_storage_server()
+        # store = StorageClient(*self.random_host(), self.timeout)
+        store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)  # type:ignore
+        res = await store.upload_buffer(tc, store_serv, content, suffix.lstrip("."))
+        uri_path = res["Remote file_id"]  # 'group1/M00/00/00/eE..R458.jpg'
+        return self._build_host(res["Storage IP"]) + uri_path
+
+    async def delete(
+        self, file: Annotated[str, "remote_file id or URL, e.g.: group1/M00/00/xxx.jpg"]
+    ) -> tuple:
+        tmp = split_remote_fileid(file)
+        if not tmp:
+            raise DataError("[-] Error: remote_file_id is invalid.(in delete file)")
+        group_name, remote_filename = tmp
+        tc = TrackerClient(ConnectionPool(**self.trackers))
+        store_serv = tc.tracker_query_storage_update(group_name, remote_filename)
+        try:
+            _, uri = file.split("://")
+        except ValueError:
+            ip_addr, port = self.random_host()
+        else:
+            ip_addr = uri.split("/", 1)[0]
+            if not is_IPv4(ip_addr):
+                ip_addr = self.get_domain_ip(ip_addr)
+            port = self.trackers["port"]
+        store = StorageClient(ip_addr, port, self.timeout)
+        return store.storage_delete_file(tc, store_serv, remote_filename)

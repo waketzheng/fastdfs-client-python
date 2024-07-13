@@ -144,15 +144,14 @@ class StorageClient:
     Note: argument host_tuple of storage server ip address, that should be a single element.
     """
 
-    def __init__(self, *kwargs):
+    def __init__(self, host: str, port: int, timeout: int, *args) -> None:
         conn_kwargs = {
             "name": "Storage Pool",
-            "host_tuple": (kwargs[0],),
-            "port": kwargs[1],
-            "timeout": kwargs[2],
+            "host_tuple": (host,),
+            "port": port,
+            "timeout": timeout,
         }
         self.pool = ConnectionPool(**conn_kwargs)
-        return None
 
     def __del__(self):
         try:
@@ -161,7 +160,7 @@ class StorageClient:
         except Exception as e:
             logger.debug(f"Failed to destroy: {e}")
 
-    def update_pool(self, old_store_serv, new_store_serv, timeout=30):
+    def update_pool(self, old_store_serv, new_store_serv, timeout=30) -> bool | None:
         """
         Update connection pool of storage client.
         We need update connection pool of storage client, while storage server is changed.
@@ -218,7 +217,6 @@ class StorageClient:
 
         """
 
-        store_conn = self.pool.get_connection()
         th = TrackerHeader()
         master_filename_len = len(master_filename) if master_filename else 0
         prefix_name_len = len(prefix_name) if prefix_name else 0
@@ -241,24 +239,24 @@ class StorageClient:
         )
         th.pkg_len += file_size
         th.cmd = cmd
-        th.send_header(store_conn)
-        if upload_slave:
-            send_buffer = struct.pack(
-                slave_fmt,
-                master_filename_len,
-                file_size,
-                prefix_name,
-                file_ext_name,
-                master_filename,
-            )
-        else:
-            send_buffer = struct.pack(
-                non_slave_fmt,
-                store_serv.store_path_index,
-                file_size,
-                file_ext_name.encode(),
-            )
-        try:
+        with self.pool.open_connection() as store_conn:
+            th.send_header(store_conn)
+            if upload_slave:
+                send_buffer = struct.pack(
+                    slave_fmt,
+                    master_filename_len,
+                    file_size,
+                    prefix_name,
+                    file_ext_name,
+                    master_filename,
+                )
+            else:
+                send_buffer = struct.pack(
+                    non_slave_fmt,
+                    store_serv.store_path_index,
+                    file_size,
+                    file_ext_name.encode(),
+                )
             tcp_send_data(store_conn, send_buffer)
             if upload_type == FDFS_UPLOAD_BY_FILENAME:
                 send_file_size = tcp_send_file(store_conn, file_buffer)
@@ -293,11 +291,6 @@ class StorageClient:
                         tracker_client, store_serv, remote_filename
                     )
                     raise DataError("[-] Error: %d, %s" % (status, os.strerror(status)))
-        except Exception as e:
-            logger.exception(e)
-            raise
-        finally:
-            self.pool.release(store_conn)
         ret_dic = {
             "Group name": group_name.strip(b"\x00"),
             "Remote file_id": group_name.strip(b"\x00")
@@ -362,6 +355,59 @@ class StorageClient:
         return self._upload_it(
             tracker_client, store_serv, filename, meta_dict, upload_type
         )
+
+    async def upload_buffer(
+        self,
+        tracker_client,
+        store_serv,
+        file_buffer,
+        file_ext_name,
+    ) -> dict:
+        # TODO: migrate from connect pool to asyncio
+        file_size = len(file_buffer)
+        th = TrackerHeader()
+        # non_slave_fmt |-store_path_index(1)-file_size(8)-file_ext_name(6)-|
+        non_slave_fmt = "!B Q %ds" % FDFS_FILE_EXT_NAME_MAX_LEN
+        th.pkg_len = struct.calcsize(non_slave_fmt) + file_size
+        th.cmd = STORAGE_PROTO_CMD_UPLOAD_FILE
+        with self.pool.open_connection() as store_conn:
+            th.send_header(store_conn)
+            send_buffer = struct.pack(
+                non_slave_fmt,
+                store_serv.store_path_index,
+                file_size,
+                file_ext_name.encode(),
+            )
+            tcp_send_data(store_conn, send_buffer)
+            tcp_send_data(store_conn, file_buffer)
+            th.recv_header(store_conn)
+            if th.status != 0:
+                raise DataError(
+                    "[-] Error: %d, %s" % (th.status, os.strerror(th.status))
+                )
+            recv_buffer, recv_size = tcp_recv_response(store_conn, th.pkg_len)
+            if recv_size <= FDFS_GROUP_NAME_MAX_LEN:
+                errmsg = "[-] Error: Storage response length is not match, "
+                errmsg += "expect: %d, actual: %d" % (th.pkg_len, recv_size)
+                raise ResponseError(errmsg)
+            # recv_fmt: |-group_name(16)-remote_file_name(recv_size - 16)-|
+            recv_fmt = "!%ds %ds" % (
+                FDFS_GROUP_NAME_MAX_LEN,
+                th.pkg_len - FDFS_GROUP_NAME_MAX_LEN,
+            )
+            group_name, remote_name = struct.unpack(recv_fmt, recv_buffer)
+            remote_filename = remote_name.strip(b"\x00")
+
+        ret_dic = {
+            "Group name": group_name.strip(b"\x00"),
+            "Remote file_id": group_name.strip(b"\x00") + b"/" + remote_filename,
+            "Status": "Upload successed.",
+            "Local file name": "",
+            "Uploaded size": appromix(file_size),
+            "Storage IP": store_serv.ip_addr,
+        }
+        self._auto_decode_bytes(ret_dic)
+        return ret_dic
 
     def storage_upload_by_buffer(
         self,

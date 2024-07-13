@@ -1,7 +1,9 @@
 import os
 import random
 import socket
+from contextlib import contextmanager
 from itertools import chain
+from typing import Generator
 
 from .exceptions import ConnectionError
 from .utils import logger
@@ -131,6 +133,14 @@ class ConnectionPool:
             conn = self.make_conn()
         self._conns_inuse.add(conn)
         return conn
+
+    @contextmanager
+    def open_connection(self) -> Generator[Connection, None, None]:
+        conn = self.get_connection()
+        try:
+            yield conn
+        finally:
+            self.release(conn)
 
     def remove(self, conn) -> None:
         """Remove connection from pool."""

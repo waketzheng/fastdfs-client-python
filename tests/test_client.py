@@ -2,16 +2,16 @@ from pathlib import Path
 
 import pytest
 
-from fastdfs_client.client import Config, FastdfsClient, get_tracker_conf, is_ip_v4
+from fastdfs_client.client import Config, FastdfsClient, get_tracker_conf, is_IPv4
 from fastdfs_client.exceptions import ConfigError, DataError
 
 
 def test_ip():
-    assert is_ip_v4("8.8.8.8")
-    assert not is_ip_v4("8.8.8.1234")
-    assert not is_ip_v4("8.8.8.a")
-    assert not is_ip_v4("8.8.8")
-    assert not is_ip_v4("8.8.8")
+    assert is_IPv4("8.8.8.8")
+    assert not is_IPv4("8.8.8.1234")
+    assert not is_IPv4("8.8.8.a")
+    assert not is_IPv4("8.8.8")
+    assert not is_IPv4("8.8.8")
 
 
 def test_config_create():

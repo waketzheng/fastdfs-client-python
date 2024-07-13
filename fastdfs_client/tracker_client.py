@@ -585,3 +585,34 @@ class TrackerClient:
         return self._tracker_do_query_storage(
             group_name, filename, TRACKER_PROTO_CMD_SERVICE_QUERY_FETCH_ONE
         )
+
+    async def get_storage_server(self) -> StorageServer:
+        """Query storage server for upload, without group name.
+        Return: StorageServer object"""
+        # TODO: migrate from connection pool to asyncio
+        th = TrackerHeader()
+        th.cmd = TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE
+        with self.pool.open_connection() as conn:
+            th.send_header(conn)
+            th.recv_header(conn)
+            if th.status != 0:
+                raise DataError(
+                    "[-] Error: %d, %s" % (th.status, os.strerror(th.status))
+                )
+            recv_buffer, recv_size = tcp_recv_response(conn, th.pkg_len)
+            if recv_size != TRACKER_QUERY_STORAGE_STORE_BODY_LEN:
+                errmsg = "[-] Error: Tracker response length is invaild, "
+                errmsg += "expect: %d, actual: %d" % (
+                    TRACKER_QUERY_STORAGE_STORE_BODY_LEN,
+                    recv_size,
+                )
+                raise ResponseError(errmsg)
+        # recv_fmt |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)|
+        recv_fmt = "!%ds %ds Q B" % (FDFS_GROUP_NAME_MAX_LEN, IP_ADDRESS_SIZE - 1)
+        group, ip, port, path_index = struct.unpack(recv_fmt, recv_buffer)
+        return StorageServer(
+            group_name=group.strip(b"\x00"),
+            ip_addr=ip.strip(b"\x00"),
+            port=port,
+            store_path_index=path_index,
+        )

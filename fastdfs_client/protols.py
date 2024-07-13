@@ -173,6 +173,12 @@ class StorageServer:
     store_path_index: int = 0
 
 
+class Struct(struct.Struct):
+    def __repr__(self) -> str:
+        return f"struct.Struct({self.format!r})"
+
+
+@dataclass
 class TrackerHeader:
     """
     Class for Pack or Unpack tracker header
@@ -183,12 +189,11 @@ class TrackerHeader:
         }
     """
 
-    def __init__(self):
-        self.fmt = "!QBB"  # pkg_len[FDFS_PROTO_PKG_LEN_SIZE] + cmd + status
-        self.st = struct.Struct(self.fmt)
-        self.pkg_len = 0
-        self.cmd = 0
-        self.status = 0
+    fmt: str = "!QBB"  # pkg_len[FDFS_PROTO_PKG_LEN_SIZE] + cmd + status
+    st: Struct = Struct(fmt)
+    pkg_len: int = 0
+    cmd: int = 0
+    status: int = 0
 
     def _pack(self, pkg_len=0, cmd=0, status=0):
         return self.st.pack(pkg_len, cmd, status)
