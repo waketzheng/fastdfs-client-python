@@ -1,5 +1,6 @@
 import socket
 import struct
+from dataclasses import dataclass
 
 from .exceptions import ConnectionError
 
@@ -162,14 +163,14 @@ FDFS_STORAGE_STATUS_RECOVERY = 9
 FDFS_STORAGE_STATUS_NONE = 99
 
 
+@dataclass
 class StorageServer:
     """Class storage server for upload."""
 
-    def __init__(self):
-        self.ip_addr = None
-        self.port = None
-        self.group_name = ""
-        self.store_path_index = 0
+    ip_addr: str | None = None
+    port: int | None = None
+    group_name: str = ""
+    store_path_index: int = 0
 
 
 class TrackerHeader:

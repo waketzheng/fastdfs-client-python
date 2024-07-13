@@ -10,12 +10,12 @@ from .utils import logger
 class Connection:
     """Manage TCP comunication to and from Fastdfs Server."""
 
-    def __init__(self, **conn_kwargs):
+    def __init__(self, host_tuple, port, timeout, **kwargs) -> None:
+        self.host_tuple = host_tuple
+        self.remote_port = port
+        self.timeout = timeout
         self.pid = os.getpid()
-        self.host_tuple = conn_kwargs["host_tuple"]
-        self.remote_port = conn_kwargs["port"]
         self.remote_addr = None
-        self.timeout = conn_kwargs["timeout"]
         self._sock = None
 
     def __del__(self):
@@ -48,7 +48,7 @@ class Connection:
         )
         return sock
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         """Disconnect from fdfs server."""
         if self._sock is None:
             return
@@ -61,7 +61,7 @@ class Connection:
     def get_sock(self):
         return self._sock
 
-    def _errormessage(self, exception):
+    def _errormessage(self, exception) -> str:
         # args for socket.error can either be (errno, "message")
         # or just "message" '''
         if len(exception.args) == 1:

@@ -1,5 +1,6 @@
 import os
 import struct
+from dataclasses import dataclass
 from datetime import datetime
 
 from .connection import tcp_recv_response, tcp_send_data
@@ -54,72 +55,72 @@ def parse_storage_status(status_code):
     return ret
 
 
+@dataclass
 class StorageInfo:
-    def __init__(self):
-        self.status = 0
-        self.id = ""
-        self.ip_addr = ""
-        self.domain_name = ""
-        self.src_id = ""
-        self.version = ""
-        self.join_time = datetime.fromtimestamp(0).isoformat()
-        self.up_time = datetime.fromtimestamp(0).isoformat()
-        self.totalMB = ""
-        self.freeMB = ""
-        self.upload_prio = 0
-        self.store_path_count = 0
-        self.subdir_count_per_path = 0
-        self.curr_write_path = 0
-        self.storage_port = 23000
-        self.storage_http_port = 80
-        self.alloc_count = 0
-        self.current_count = 0
-        self.max_count = 0
-        self.total_upload_count = 0
-        self.success_upload_count = 0
-        self.total_append_count = 0
-        self.success_append_count = 0
-        self.total_modify_count = 0
-        self.success_modify_count = 0
-        self.total_truncate_count = 0
-        self.success_truncate_count = 0
-        self.total_setmeta_count = 0
-        self.success_setmeta_count = 0
-        self.total_del_count = 0
-        self.success_del_count = 0
-        self.total_download_count = 0
-        self.success_download_count = 0
-        self.total_getmeta_count = 0
-        self.success_getmeta_count = 0
-        self.total_create_link_count = 0
-        self.success_create_link_count = 0
-        self.total_del_link_count = 0
-        self.success_del_link_count = 0
-        self.total_upload_bytes = 0
-        self.success_upload_bytes = 0
-        self.total_append_bytes = 0
-        self.success_append_bytes = 0
-        self.total_modify_bytes = 0
-        self.success_modify_bytes = 0
-        self.total_download_bytes = 0
-        self.success_download_bytes = 0
-        self.total_sync_in_bytes = 0
-        self.success_sync_in_bytes = 0
-        self.total_sync_out_bytes = 0
-        self.success_sync_out_bytes = 0
-        self.total_file_open_count = 0
-        self.success_file_open_count = 0
-        self.total_file_read_count = 0
-        self.success_file_read_count = 0
-        self.total_file_write_count = 0
-        self.success_file_write_count = 0
-        self.last_source_sync = datetime.fromtimestamp(0).isoformat()
-        self.last_sync_update = datetime.fromtimestamp(0).isoformat()
-        self.last_synced_time = datetime.fromtimestamp(0).isoformat()
-        self.last_heartbeat_time = datetime.fromtimestamp(0).isoformat()
-        self.if_trunk_server = ""
-        # fmt = |-status(1)-ipaddr(16)-domain(128)-srcipaddr(16)-ver(6)-52*8-|
-        self.fmt = "!B 16s 16s 128s 16s 6s 10Q 4s4s4s 42Q?"
+    status = 0
+    id = ""
+    ip_addr = ""
+    domain_name = ""
+    src_id = ""
+    version = ""
+    join_time = datetime.fromtimestamp(0).isoformat()
+    up_time = datetime.fromtimestamp(0).isoformat()
+    totalMB = ""
+    freeMB = ""
+    upload_prio = 0
+    store_path_count = 0
+    subdir_count_per_path = 0
+    curr_write_path = 0
+    storage_port = 23000
+    storage_http_port = 80
+    alloc_count = 0
+    current_count = 0
+    max_count = 0
+    total_upload_count = 0
+    success_upload_count = 0
+    total_append_count = 0
+    success_append_count = 0
+    total_modify_count = 0
+    success_modify_count = 0
+    total_truncate_count = 0
+    success_truncate_count = 0
+    total_setmeta_count = 0
+    success_setmeta_count = 0
+    total_del_count = 0
+    success_del_count = 0
+    total_download_count = 0
+    success_download_count = 0
+    total_getmeta_count = 0
+    success_getmeta_count = 0
+    total_create_link_count = 0
+    success_create_link_count = 0
+    total_del_link_count = 0
+    success_del_link_count = 0
+    total_upload_bytes = 0
+    success_upload_bytes = 0
+    total_append_bytes = 0
+    success_append_bytes = 0
+    total_modify_bytes = 0
+    success_modify_bytes = 0
+    total_download_bytes = 0
+    success_download_bytes = 0
+    total_sync_in_bytes = 0
+    success_sync_in_bytes = 0
+    total_sync_out_bytes = 0
+    success_sync_out_bytes = 0
+    total_file_open_count = 0
+    success_file_open_count = 0
+    total_file_read_count = 0
+    success_file_read_count = 0
+    total_file_write_count = 0
+    success_file_write_count = 0
+    last_source_sync = datetime.fromtimestamp(0).isoformat()
+    last_sync_update = datetime.fromtimestamp(0).isoformat()
+    last_synced_time = datetime.fromtimestamp(0).isoformat()
+    last_heartbeat_time = datetime.fromtimestamp(0).isoformat()
+    if_trunk_server = ""
+    # fmt = |-status(1)-ipaddr(16)-domain(128)-srcipaddr(16)-ver(6)-52*8-|
+    fmt = "!B 16s 16s 128s 16s 6s 10Q 4s4s4s 42Q?"
 
     def set_info(self, bytes_stream):
         (
@@ -273,22 +274,21 @@ class StorageInfo:
         return struct.calcsize(self.fmt)
 
 
+@dataclass
 class GroupInfo:
-    def __init__(self):
-        self.group_name = ""
-        self.totalMB = ""
-        self.freeMB = ""
-        self.trunk_freeMB = ""
-        self.count = 0
-        self.storage_port = 0
-        self.store_http_port = 0
-        self.active_count = 0
-        self.curr_write_server = 0
-        self.store_path_count = 0
-        self.subdir_count_per_path = 0
-        self.curr_trunk_file_id = 0
-        self.fmt = "!%ds 11Q" % (FDFS_GROUP_NAME_MAX_LEN + 1)
-        return None
+    group_name = ""
+    totalMB = ""
+    freeMB = ""
+    trunk_freeMB = ""
+    count = 0
+    storage_port = 0
+    store_http_port = 0
+    active_count = 0
+    curr_write_server = 0
+    store_path_count = 0
+    subdir_count_per_path = 0
+    curr_trunk_file_id = 0
+    fmt = "!%ds 11Q" % (FDFS_GROUP_NAME_MAX_LEN + 1)
 
     def __str__(self):
         s = "Group information:\n"
