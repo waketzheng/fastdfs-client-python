@@ -458,10 +458,8 @@ class TrackerClient:
     def tracker_query_storage_stor_without_group(self):
         """Query storage server for upload, without group name.
         Return: StorageServer object"""
-        conn = self.pool.get_connection()
-        th = TrackerHeader()
-        th.cmd = TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE
-        try:
+        th = TrackerHeader(cmd=TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE)
+        with self.pool.open_connection() as conn:
             th.send_header(conn)
             th.recv_header(conn)
             if th.status != 0:
@@ -476,10 +474,6 @@ class TrackerClient:
                     recv_size,
                 )
                 raise ResponseError(errmsg)
-        except ConnectionError:
-            raise
-        finally:
-            self.pool.release(conn)
         # recv_fmt |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)|
         recv_fmt = "!%ds %ds Q B" % (FDFS_GROUP_NAME_MAX_LEN, IP_ADDRESS_SIZE - 1)
         store_serv = StorageServer()
@@ -590,8 +584,7 @@ class TrackerClient:
         """Query storage server for upload, without group name.
         Return: StorageServer object"""
         # TODO: migrate from connection pool to asyncio
-        th = TrackerHeader()
-        th.cmd = TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE
+        th = TrackerHeader(cmd=TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE)
         with self.pool.open_connection() as conn:
             th.send_header(conn)
             th.recv_header(conn)
@@ -601,10 +594,9 @@ class TrackerClient:
                 )
             recv_buffer, recv_size = tcp_recv_response(conn, th.pkg_len)
             if recv_size != TRACKER_QUERY_STORAGE_STORE_BODY_LEN:
-                errmsg = "[-] Error: Tracker response length is invaild, "
-                errmsg += "expect: %d, actual: %d" % (
-                    TRACKER_QUERY_STORAGE_STORE_BODY_LEN,
-                    recv_size,
+                errmsg = (
+                    "[-] Error: Tracker response length is invaild, expect: %d, actual: %d"
+                    % (TRACKER_QUERY_STORAGE_STORE_BODY_LEN, recv_size)
                 )
                 raise ResponseError(errmsg)
         # recv_fmt |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)|

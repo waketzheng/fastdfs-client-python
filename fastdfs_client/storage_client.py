@@ -365,11 +365,10 @@ class StorageClient:
     ) -> dict:
         # TODO: migrate from connect pool to asyncio
         file_size = len(file_buffer)
-        th = TrackerHeader()
         # non_slave_fmt |-store_path_index(1)-file_size(8)-file_ext_name(6)-|
         non_slave_fmt = "!B Q %ds" % FDFS_FILE_EXT_NAME_MAX_LEN
+        th = TrackerHeader(cmd=STORAGE_PROTO_CMD_UPLOAD_FILE)
         th.pkg_len = struct.calcsize(non_slave_fmt) + file_size
-        th.cmd = STORAGE_PROTO_CMD_UPLOAD_FILE
         with self.pool.open_connection() as store_conn:
             th.send_header(store_conn)
             send_buffer = struct.pack(
