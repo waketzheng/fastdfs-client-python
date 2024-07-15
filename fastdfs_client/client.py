@@ -120,6 +120,87 @@ class BaseClient:
         return socket.gethostbyname(domain)
 
 
+class AsyncDfsClient(BaseClient):
+    @cached_property
+    def domain_ip(self) -> dict[str, str]:
+        return {v.split("://")[-1]: k for k, v in (self.ip_mapping or {}).items()}
+
+    def random_host(self) -> tuple[str, int]:
+        ip_list: list[str] = []
+        for host in self.trackers["host_tuple"]:
+            if not is_IPv4(host):
+                if host in self.domain_ip:
+                    host = self.domain_ip[host]
+                else:
+                    host = self.get_domain_ip(host)
+            ip_list.append(host)
+        if len(ip_list) > 1:
+            host = random.choice(ip_list)
+        return host, self.trackers["port"]
+
+    async def upload(self, content: bytes, suffix=".jpg") -> str:
+        """Upload file content, if success return a URL
+
+        :param content: bytes type of file content
+        :param suffix: this will add at the end of URL with a dot before it
+
+        Example::
+        ```py
+        from pathlib import Path
+        from fastdfs_client import AsyncDfsClient
+
+        client = AsyncDfsClient(['example.com'])
+        url = await client.upload(Path('a.JPEG').read_bytes(), suffix='jpeg')
+        print(url)
+        # https://example.com/group1/M00/00/00/eE0vIWZEgMCAFnaMAAABXbxaFk89563.jpeg
+        ```
+        """
+        store_serv = await TrackerClient.get_storage_server(self.random_host())
+        store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)  # type:ignore
+        res = await store.upload_buffer(store_serv, content, suffix.lstrip("."))
+        uri_path = res["Remote file_id"]  # 'group1/M00/00/00/eE..R458.jpg'
+        return self._build_host(res["Storage IP"]) + uri_path
+
+    async def delete(
+        self, file: Annotated[str, "remote_file id or URL, e.g.: group1/M00/00/xxx.jpg"]
+    ) -> tuple:
+        """Delete uploaded file, if success return a tuple
+
+        :param file: remote file id or URL
+        :return: tuple -- ('Success message', b'remote file id', b'storage ip')
+
+        Example::
+        ```py
+        from fastdfs_client import AsyncDfsClient
+
+        client = AsyncDfsClient(['example.com'])
+        url = https://example.com/group1/M00/00/00/eE0vIWZEgMCAFnaMAAABXbxaFk89563.jpeg'
+        ret = await client.delete(url)
+        print(ret)
+        # ('Delete file successed.', b'group1/M00/00/1B/eE0vIWaU9kyAVILJAAHM-px7j44359.py', b'120.77.47.33')
+        ```
+        """
+        maybe_url = True
+        try:
+            _, uri = file.split("://")
+        except ValueError:
+            host_info = self.random_host()
+        else:
+            ip_addr, file = uri.split("/", 1)
+            maybe_url = False
+            if not is_IPv4(ip_addr):
+                ip_addr = self.get_domain_ip(ip_addr)
+            host_info = (ip_addr, self.trackers["port"])
+        if not (tmp := split_remote_fileid(file, maybe_url=maybe_url)):
+            raise DataError("[-] Error: remote_file_id is invalid.(in delete file)")
+        group_name, remote_filename = tmp
+        store_serv = await TrackerClient.get_storage_server(
+            host_info, group_name, remote_filename
+        )
+        store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)
+        return await store.delete_file(store_serv, remote_filename)
+
+
 class FastdfsClient(BaseClient):
     """
     Class FastdfsClient implemented Fastdfs client protol V6.12
@@ -771,67 +852,5 @@ class FastdfsClient(BaseClient):
     async def delete(self, file: str) -> tuple:
         return await self.async_client.delete(file)
 
-
-class AsyncDfsClient(BaseClient):
-    @cached_property
-    def domain_ip(self) -> dict[str, str]:
-        return {v.split("://")[-1]: k for k, v in (self.ip_mapping or {}).items()}
-
-    def random_host(self) -> tuple[str, int]:
-        ip_list: list[str] = []
-        for host in self.trackers["host_tuple"]:
-            if not is_IPv4(host):
-                if host in self.domain_ip:
-                    host = self.domain_ip[host]
-                else:
-                    host = self.get_domain_ip(host)
-            ip_list.append(host)
-        if len(ip_list) > 1:
-            host = random.choice(ip_list)
-        return host, self.trackers["port"]
-
-    async def upload(self, content: bytes, suffix=".jpg") -> str:
-        """Upload file content, if success return a URL
-
-        :param content: bytes type of file content
-        :param suffix: this will add at the end of URL with a dot before it
-
-        Example::
-        ```py
-        from pathlib import Path
-        from fastdfs_client import AsyncDfsClient
-
-        client = AsyncDfsClient(['example.com'])
-        url = await client.upload(Path('a.JPEG').read_bytes(), suffix='jpeg')
-        print(url)
-        # https://example.com/group1/M00/00/00/eE0vIWZEgMCAFnaMAAABXbxaFk89563.jpeg
-        ```
-        """
-        store_serv = await TrackerClient.get_storage_server(self.random_host())
-        store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)  # type:ignore
-        res = await store.upload_buffer(store_serv, content, suffix.lstrip("."))
-        uri_path = res["Remote file_id"]  # 'group1/M00/00/00/eE..R458.jpg'
-        return self._build_host(res["Storage IP"]) + uri_path
-
-    async def delete(
-        self, file: Annotated[str, "remote_file id or URL, e.g.: group1/M00/00/xxx.jpg"]
-    ) -> tuple:
-        maybe_url = True
-        try:
-            _, uri = file.split("://")
-        except ValueError:
-            host_info = self.random_host()
-        else:
-            ip_addr, file = uri.split("/", 1)
-            maybe_url = False
-            if not is_IPv4(ip_addr):
-                ip_addr = self.get_domain_ip(ip_addr)
-            host_info = (ip_addr, self.trackers["port"])
-        if not (tmp := split_remote_fileid(file, maybe_url=maybe_url)):
-            raise DataError("[-] Error: remote_file_id is invalid.(in delete file)")
-        group_name, remote_filename = tmp
-        store_serv = await TrackerClient.get_storage_server(
-            host_info, group_name, remote_filename
-        )
-        store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)
-        return await store.delete_file(store_serv, remote_filename)
+    upload.__doc__ = AsyncDfsClient.upload.__doc__
+    delete.__doc__ = AsyncDfsClient.delete.__doc__
