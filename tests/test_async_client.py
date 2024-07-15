@@ -5,11 +5,6 @@ import pytest
 from fastdfs_client.client import AsyncDfsClient, FastdfsClient
 
 
-@pytest.fixture
-def anyio_backend():
-    return "asyncio"
-
-
 class TestUpload:
     client_cls = AsyncDfsClient
 

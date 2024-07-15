@@ -88,3 +88,23 @@ id_or_url = 'https://dfs.waketzheng.top/group1/M00/00/00/wKjzh0_xaR63RExnAAAaDqb
 # id_or_url = 'group1/M00/00/00/wKjzh0_xaR63RExnAAAaDqbNk5E1398.txt'
 client.delete_file(id_or_url)
 ```
+
+## AsyncIO/Trio
+- upload
+```py
+from pathlib import Path
+from fastdfs_client import FastdfsClient
+
+client = FastdfsClient(["dfs.waketzheng.top"])
+p = Path('tests/test_async_client.py')
+url = await client.upload(p.read_bytes(), p.suffix)
+print(url)
+# https://dfs.waketzheng.top/group1/M00/00/00/xxx.py
+```
+- delete
+```py
+url = 'https://dfs.waketzheng.top/group1/M00/00/00/xxx.py'
+resp = await client.delete(url)
+print(resp)
+# ('Delete file successed.', b'group1/M00/00/1B/eE0vIWaU9kyAVILJAAHM-px7j44359.py', b'120.77.47.33')
+```

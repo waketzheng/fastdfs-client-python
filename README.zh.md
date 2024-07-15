@@ -32,6 +32,29 @@ print(ret)
     "Storage IP": "192.168.1.133"
 }
 ```
+## 其他用法
+- 上传并返回URL地址
+```py
+from pathlib import Path
+url = client.upload_as_url(Path('test.txt').read_bytes())
+print(url)
+# https://dfs.waketzheng.top/group1/M00/00/00/wKjzh0_xaR63RExnAAAaDqbNk5E1398.jpg
+```
+- 删除某个文件
+```py
+ret = client.delete_file(url)
+print(ret)
+# ('Delete file successed.', b'group1/M00/00/1B/eE0vIWaU9kyAVILJAAHM-px7j44359.jpg', b'120.77.47.33')
+```
+## 异步的方式
+```py
+url = await client.upload(Path('test.txt').read_bytes())
+print(url)
+# https://dfs.waketzheng.top/group1/M00/00/00/wKjzh0_xaR63RExnAAAaDqbNk5E1398.jpg
+ret = await client.delete(url)
+print(ret)
+# ('Delete file successed.', b'group1/M00/00/1B/eE0vIWaU9kyAVILJAAHM-px7j44359.jpg', b'120.77.47.33')
+```
 
 ## 说明
 > 代码是在[fastdfs-client-py3 1.0.0](https://pypi.org/project/fastdfs-client-py3/)的基础上修改的：
@@ -42,6 +65,7 @@ print(ret)
 5. 部分函数增加了类型注解，所有代码均通过mypy检查
 6. 增加了client.upload_as_url函数，支持上传二进制后返回完整URL
 7. 扩展了FastdfsClient类的初始化，[直接传IP地址即可](./examples/init_with_ip.py)，无需传入.conf文件
+8. 支持异步(asyncio/trio)的方式上传和删除文件
 
 ## 许可证
 
