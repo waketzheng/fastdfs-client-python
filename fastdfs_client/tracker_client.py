@@ -3,12 +3,10 @@ import struct
 from dataclasses import dataclass
 from datetime import datetime
 
-from .connection import tcp_recv_response, tcp_send_data
-from .exceptions import (
-    ConnectionError,
-    DataError,
-    ResponseError,
-)
+import anyio
+
+from .connection import tcp_receive, tcp_recv_response, tcp_send_data
+from .exceptions import ConnectionError, DataError, ResponseError
 from .protols import (
     FDFS_GROUP_NAME_MAX_LEN,
     FDFS_SPACE_SIZE_BASE_INDEX,
@@ -458,10 +456,8 @@ class TrackerClient:
     def tracker_query_storage_stor_without_group(self):
         """Query storage server for upload, without group name.
         Return: StorageServer object"""
-        conn = self.pool.get_connection()
-        th = TrackerHeader()
-        th.cmd = TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE
-        try:
+        th = TrackerHeader(cmd=TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE)
+        with self.pool.open_connection() as conn:
             th.send_header(conn)
             th.recv_header(conn)
             if th.status != 0:
@@ -476,10 +472,6 @@ class TrackerClient:
                     recv_size,
                 )
                 raise ResponseError(errmsg)
-        except ConnectionError:
-            raise
-        finally:
-            self.pool.release(conn)
         # recv_fmt |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)|
         recv_fmt = "!%ds %ds Q B" % (FDFS_GROUP_NAME_MAX_LEN, IP_ADDRESS_SIZE - 1)
         store_serv = StorageServer()
@@ -584,4 +576,46 @@ class TrackerClient:
         """
         return self._tracker_do_query_storage(
             group_name, filename, TRACKER_PROTO_CMD_SERVICE_QUERY_FETCH_ONE
+        )
+
+    @staticmethod
+    async def get_storage_server(
+        host_info: tuple[str, int], group_name="", filename=""
+    ) -> StorageServer:
+        """Query storage server for upload, without group name.
+        Return: StorageServer object"""
+        pkg_len = file_name_len = len(filename)
+        if is_delete := bool(file_name_len):
+            cmd = TRACKER_PROTO_CMD_SERVICE_QUERY_UPDATE
+            pkg_len += FDFS_GROUP_NAME_MAX_LEN
+        else:
+            cmd = TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE
+        th = TrackerHeader(cmd=cmd, pkg_len=pkg_len)
+        async with await anyio.connect_tcp(*host_info) as client:
+            await client.send(th.build_header())
+            expected_len = TRACKER_QUERY_STORAGE_STORE_BODY_LEN
+            if is_delete:
+                expected_len = TRACKER_QUERY_STORAGE_FETCH_BODY_LEN
+                # query_fmt: |-group_name(16)-filename(file_name_len)-|
+                query_fmt = "!%ds %ds" % (FDFS_GROUP_NAME_MAX_LEN, file_name_len)
+                send_buffer = struct.pack(
+                    query_fmt, group_name.encode(), filename.encode()
+                )
+                await client.send(send_buffer)
+            await th.verify_header(client)
+            recv_buffer = await tcp_receive(client, th.pkg_len, expected_len)
+        if is_delete:
+            # recv_fmt: |-group_name(16)-ip_addr(16)-port(8)-|
+            recv_fmt = "!%ds %ds Q" % (FDFS_GROUP_NAME_MAX_LEN, IP_ADDRESS_SIZE - 1)
+            group, ip, port = struct.unpack(recv_fmt, recv_buffer)
+            path_index = 0
+        else:
+            # recv_fmt |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)|
+            recv_fmt = "!%ds %ds Q B" % (FDFS_GROUP_NAME_MAX_LEN, IP_ADDRESS_SIZE - 1)
+            group, ip, port, path_index = struct.unpack(recv_fmt, recv_buffer)
+        return StorageServer(
+            group_name=group.strip(b"\x00"),
+            ip_addr=ip.strip(b"\x00"),
+            port=port,
+            store_path_index=path_index,
         )

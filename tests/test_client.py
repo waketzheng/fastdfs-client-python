@@ -1,17 +1,19 @@
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Generator
 
 import pytest
 
-from fastdfs_client.client import Config, FastdfsClient, get_tracker_conf, is_ip_v4
+from fastdfs_client.client import Config, FastdfsClient, get_tracker_conf, is_IPv4
 from fastdfs_client.exceptions import ConfigError, DataError
 
 
 def test_ip():
-    assert is_ip_v4("8.8.8.8")
-    assert not is_ip_v4("8.8.8.1234")
-    assert not is_ip_v4("8.8.8.a")
-    assert not is_ip_v4("8.8.8")
-    assert not is_ip_v4("8.8.8")
+    assert is_IPv4("8.8.8.8")
+    assert not is_IPv4("8.8.8.1234")
+    assert not is_IPv4("8.8.8.a")
+    assert not is_IPv4("8.8.8")
+    assert not is_IPv4("8.8.8")
 
 
 def test_config_create():
@@ -36,8 +38,10 @@ def test_conf_file():
             "timeout": 30,
         }
     )
+    invalid_conf_file = parent / "invalid.conf"
+    assert invalid_conf_file.exists()
     with pytest.raises(ConfigError):
-        FastdfsClient(parent / "invalid.conf")
+        FastdfsClient(invalid_conf_file)
 
 
 def test_conf_string():
@@ -75,11 +79,10 @@ def test_upload_url():
     domain = "dfs.waketzheng.top"
     client = FastdfsClient([domain])
     url = client.upload_as_url(to_upload.read_bytes(), to_upload.suffix)
+    r = client.delete_file(url)
     assert Path(url).suffix == to_upload.suffix
     assert domain in url
     assert url.startswith("https")
-    remote_file_id = url.split("://")[-1].split("/", 1)[-1]
-    r = client.delete_file(remote_file_id)
     assert "success" in str(r)
     with pytest.raises(DataError):
         client._check_file(str(to_upload.parent))
@@ -89,11 +92,11 @@ def test_upload_filename():
     domain = "dfs.waketzheng.top"
     client = FastdfsClient([domain])
     ret = client.upload_by_filename(__file__)
-    assert ret["Group name"].startswith("group")
     remote_file_id = ret["Remote file_id"]
-    assert ret["Local file name"] in __file__
     r = client.delete_file(remote_file_id)
+    assert ret["Group name"].startswith("group")
     assert remote_file_id in str(r)
+    assert ret["Local file name"] in __file__
     with pytest.raises(DataError):
         client.upload_by_filename(str(Path(__file__).parent))
 
@@ -105,19 +108,32 @@ def test_upload_file():
         client.upload_by_file(__file__)
 
 
+@contextmanager
+def temp_remote_file(
+    client: FastdfsClient, to_upload: Path, as_url=False
+) -> Generator[str, None, None]:
+    if as_url:
+        url = client.upload_as_url(to_upload.read_bytes(), to_upload.suffix)
+    else:
+        ret = client.upload_by_filename(to_upload)
+        url = ret["Remote file_id"]
+    try:
+        yield url
+    finally:
+        client.delete_file(url)
+
+
 def test_download(tmp_path: Path):
     domain = "dfs.waketzheng.top"
     client = FastdfsClient([domain])
     with pytest.raises(DataError):
         client.download_to_file(tmp_path / "localfile", "not-exist-remote-file-id")
     to_upload = Path(__file__)
-    ret = client.upload_by_filename(to_upload)
-    remote_file_id = ret["Remote file_id"]
     temp_file = tmp_path / "foo"
-    r = client.download_to_file(temp_file, remote_file_id)
+    with temp_remote_file(client, to_upload) as remote_file_id:
+        r = client.download_to_file(temp_file, remote_file_id)
     assert r["Content"] == temp_file
     assert temp_file.read_bytes() == to_upload.read_bytes()
-    client.delete_file(remote_file_id)
     with pytest.raises(DataError):
         client.download_to_file(temp_file, remote_file_id)
 
@@ -126,11 +142,10 @@ def test_download_by_url(tmp_path: Path):
     domain = "dfs.waketzheng.top"
     client = FastdfsClient([domain])
     to_upload = Path(__file__)
-    url = client.upload_as_url(to_upload.read_bytes(), to_upload.suffix)
     temp_file = tmp_path / "foo"
-    r = client.download_to_file(temp_file, url)
+    with temp_remote_file(client, to_upload, as_url=True) as url:
+        r = client.download_to_file(temp_file, url)
     assert r["Content"] == temp_file
     assert temp_file.read_bytes() == to_upload.read_bytes()
-    client.delete_file(url)
     with pytest.raises(DataError):
         client.download_to_file(temp_file, url)

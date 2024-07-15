@@ -9,11 +9,13 @@ repository = "https://github.com/waketzheng/fastdfs-client-python"
 
 [tool.poetry.dependencies]
 python = "^3.10"
+anyio = ">=4.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
 fast-dev-cli = "^0.9.1"
 pre-commit = "^3.7.1"
+trio = "^0.26.0"
 
 [tool.mypy]
 pretty = true

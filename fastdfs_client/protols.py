@@ -1,8 +1,12 @@
+import os
 import socket
 import struct
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
-from .exceptions import ConnectionError
+import anyio
+
+from .exceptions import ConnectionError, DataError
 
 # define FDFS protol constans
 TRACKER_PROTO_CMD_STORAGE_JOIN = 81
@@ -167,12 +171,25 @@ FDFS_STORAGE_STATUS_NONE = 99
 class StorageServer:
     """Class storage server for upload."""
 
-    ip_addr: str | None = None
-    port: int | None = None
+    ip_addr: str = ""
+    port: int = 0
     group_name: str = ""
     store_path_index: int = 0
 
+    @asynccontextmanager
+    async def connect_tcp(self):
+        if isinstance(ip_addr := self.ip_addr, bytes):
+            ip_addr = ip_addr.decode()
+        async with await anyio.connect_tcp(ip_addr, self.port) as client:
+            yield client
 
+
+class Struct(struct.Struct):
+    def __repr__(self) -> str:
+        return f"struct.Struct({self.format!r})"
+
+
+@dataclass
 class TrackerHeader:
     """
     Class for Pack or Unpack tracker header
@@ -183,12 +200,11 @@ class TrackerHeader:
         }
     """
 
-    def __init__(self):
-        self.fmt = "!QBB"  # pkg_len[FDFS_PROTO_PKG_LEN_SIZE] + cmd + status
-        self.st = struct.Struct(self.fmt)
-        self.pkg_len = 0
-        self.cmd = 0
-        self.status = 0
+    fmt: str = "!QBB"  # pkg_len[FDFS_PROTO_PKG_LEN_SIZE] + cmd + status
+    st: Struct = Struct(fmt)
+    pkg_len: int = 0
+    cmd: int = 0
+    status: int = 0
 
     def _pack(self, pkg_len=0, cmd=0, status=0):
         return self.st.pack(pkg_len, cmd, status)
@@ -200,9 +216,12 @@ class TrackerHeader:
     def header_len(self) -> int:
         return self.st.size
 
+    def build_header(self) -> bytes:
+        return self._pack(self.pkg_len, self.cmd, self.status)
+
     def send_header(self, conn) -> None:
         """Send Tracker header to server."""
-        header = self._pack(self.pkg_len, self.cmd, self.status)
+        header = self.build_header()
         try:
             conn._sock.sendall(header)
         except (socket.error, socket.timeout) as e:
@@ -219,6 +238,12 @@ class TrackerHeader:
                 "[-] Error: while reading from socket: %s" % (e.args,)
             )
         self._unpack(header)
+
+    async def verify_header(self, client) -> None:
+        response = await client.receive(self.header_len())
+        self._unpack(response)
+        if (status := self.status) != 0:
+            raise DataError(f"[-] Error: {status}, {os.strerror(status)}")
 
 
 def fdfs_pack_metadata(meta_dict) -> str:
