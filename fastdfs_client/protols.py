@@ -1,8 +1,9 @@
+import os
 import socket
 import struct
 from dataclasses import dataclass
 
-from .exceptions import ConnectionError
+from .exceptions import ConnectionError, DataError
 
 # define FDFS protol constans
 TRACKER_PROTO_CMD_STORAGE_JOIN = 81
@@ -205,9 +206,12 @@ class TrackerHeader:
     def header_len(self) -> int:
         return self.st.size
 
+    def build_header(self) -> bytes:
+        return self._pack(self.pkg_len, self.cmd, self.status)
+
     def send_header(self, conn) -> None:
         """Send Tracker header to server."""
-        header = self._pack(self.pkg_len, self.cmd, self.status)
+        header = self.build_header()
         try:
             conn._sock.sendall(header)
         except (socket.error, socket.timeout) as e:
@@ -224,6 +228,11 @@ class TrackerHeader:
                 "[-] Error: while reading from socket: %s" % (e.args,)
             )
         self._unpack(header)
+
+    def check_status(self, response: bytes) -> None:
+        self._unpack(response)
+        if (status := self.status) != 0:
+            raise DataError(f"[-] Error: {status}, {os.strerror(status)}")
 
 
 def fdfs_pack_metadata(meta_dict) -> str:

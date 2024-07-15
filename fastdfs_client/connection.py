@@ -31,10 +31,9 @@ class Connection:
         if self._sock:
             return
         try:
-            sock = self._connect()
+            self._sock = self._connect()
         except socket.error as e:
             raise ConnectionError(self._errormessage(e))
-        self._sock = sock
         # print '[+] Create a connection success.'
         # print '\tLocal address is %s:%s.' % self._sock.getsockname()
         # print '\tRemote address is %s:%s' % (self.remote_addr, self.remote_port)

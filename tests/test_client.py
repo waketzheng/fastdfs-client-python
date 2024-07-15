@@ -38,8 +38,10 @@ def test_conf_file():
             "timeout": 30,
         }
     )
+    invalid_conf_file = parent / "invalid.conf"
+    assert invalid_conf_file.exists()
     with pytest.raises(ConfigError):
-        FastdfsClient(parent / "invalid.conf")
+        FastdfsClient(invalid_conf_file)
 
 
 def test_conf_string():

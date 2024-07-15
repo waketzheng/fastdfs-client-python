@@ -4,6 +4,8 @@ import platform
 import struct
 import sys
 
+import anyio
+
 from .connection import ConnectionPool, tcp_recv_response, tcp_send_data
 from .exceptions import (
     ConnectionError,
@@ -363,28 +365,40 @@ class StorageClient:
         file_buffer,
         file_ext_name,
     ) -> dict:
-        # TODO: migrate from connect pool to asyncio
         file_size = len(file_buffer)
         # non_slave_fmt |-store_path_index(1)-file_size(8)-file_ext_name(6)-|
         non_slave_fmt = "!B Q %ds" % FDFS_FILE_EXT_NAME_MAX_LEN
         th = TrackerHeader(cmd=STORAGE_PROTO_CMD_UPLOAD_FILE)
         th.pkg_len = struct.calcsize(non_slave_fmt) + file_size
-        with self.pool.open_connection() as store_conn:
-            th.send_header(store_conn)
+        if isinstance(ip_addr := store_serv.ip_addr, bytes):
+            ip_addr = ip_addr.decode()
+        async with await anyio.connect_tcp(ip_addr, store_serv.port) as client:
+            await client.send(th.build_header())
             send_buffer = struct.pack(
                 non_slave_fmt,
                 store_serv.store_path_index,
                 file_size,
                 file_ext_name.encode(),
             )
-            tcp_send_data(store_conn, send_buffer)
-            tcp_send_data(store_conn, file_buffer)
-            th.recv_header(store_conn)
-            if th.status != 0:
-                raise DataError(
-                    "[-] Error: %d, %s" % (th.status, os.strerror(th.status))
-                )
-            recv_buffer, recv_size = tcp_recv_response(store_conn, th.pkg_len)
+            await client.send(send_buffer)
+            await client.send(file_buffer)
+            response = await client.receive(th.header_len())
+            th.check_status(response)
+            buffer_size = 4096
+            recv_bs = []
+            total_size = 0
+            bytes_size = th.pkg_len
+            while bytes_size > 0:
+                try:
+                    response = await client.receive(buffer_size)
+                except Exception as e:
+                    logger.exception(e)
+                else:
+                    recv_bs.append(response)
+                    length = len(response)
+                    total_size += length
+                    bytes_size -= length
+            recv_buffer, recv_size = b"".join(recv_bs), total_size
             if recv_size <= FDFS_GROUP_NAME_MAX_LEN:
                 errmsg = "[-] Error: Storage response length is not match, "
                 errmsg += "expect: %d, actual: %d" % (th.pkg_len, recv_size)
@@ -394,12 +408,13 @@ class StorageClient:
                 FDFS_GROUP_NAME_MAX_LEN,
                 th.pkg_len - FDFS_GROUP_NAME_MAX_LEN,
             )
-            group_name, remote_name = struct.unpack(recv_fmt, recv_buffer)
+            group, remote_name = struct.unpack(recv_fmt, recv_buffer)
             remote_filename = remote_name.strip(b"\x00")
+            group_name = group.strip(b"\x00")
 
         ret_dic = {
-            "Group name": group_name.strip(b"\x00"),
-            "Remote file_id": group_name.strip(b"\x00") + b"/" + remote_filename,
+            "Group name": group_name,
+            "Remote file_id": group_name + b"/" + remote_filename,
             "Status": "Upload successed.",
             "Local file name": "",
             "Uploaded size": appromix(file_size),
