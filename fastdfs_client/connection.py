@@ -197,7 +197,7 @@ async def tcp_receive(
     clsname="Tracker",
     *,
     buffer_size=4096,
-) -> tuple[bytes, int]:
+) -> bytes:
     recv_bs = []
     total_size = 0
     while bytes_size > 0:
@@ -213,7 +213,7 @@ async def tcp_receive(
     if expected_len is not None and not compare(total_size, expected_len):
         msg = f"[-] Error: {clsname} response length is not match, expect: {expected_len}, actual: {total_size}"
         raise ResponseError(msg)
-    return b"".join(recv_bs), total_size
+    return b"".join(recv_bs)
 
 
 def tcp_send_data(conn, bytes_stream) -> None:

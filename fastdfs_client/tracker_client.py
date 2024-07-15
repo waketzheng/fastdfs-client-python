@@ -585,9 +585,8 @@ class TrackerClient:
         th = TrackerHeader(cmd=TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE)
         async with await anyio.connect_tcp(*host_info) as client:
             await client.send(th.build_header())
-            response = await client.receive(th.header_len())
-            th.check_status(response)
-            recv_buffer, recv_size = await tcp_receive(
+            await th.verify_header(client)
+            recv_buffer = await tcp_receive(
                 client, th.pkg_len, TRACKER_QUERY_STORAGE_STORE_BODY_LEN
             )
         # recv_fmt |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)|

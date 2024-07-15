@@ -229,7 +229,8 @@ class TrackerHeader:
             )
         self._unpack(header)
 
-    def check_status(self, response: bytes) -> None:
+    async def verify_header(self, client) -> None:
+        response = await client.receive(self.header_len())
         self._unpack(response)
         if (status := self.status) != 0:
             raise DataError(f"[-] Error: {status}, {os.strerror(status)}")

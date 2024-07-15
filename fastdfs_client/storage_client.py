@@ -383,9 +383,8 @@ class StorageClient:
             )
             await client.send(send_buffer)
             await client.send(file_buffer)
-            response = await client.receive(th.header_len())
-            th.check_status(response)
-            recv_buffer, recv_size = await tcp_receive(
+            await th.verify_header(client)
+            recv_buffer = await tcp_receive(
                 client, th.pkg_len, FDFS_GROUP_NAME_MAX_LEN, operator.gt, "Storage"
             )
             # recv_fmt: |-group_name(16)-remote_file_name(recv_size - 16)-|
