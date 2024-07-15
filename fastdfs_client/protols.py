@@ -168,8 +168,8 @@ FDFS_STORAGE_STATUS_NONE = 99
 class StorageServer:
     """Class storage server for upload."""
 
-    ip_addr: str | None = None
-    port: int | None = None
+    ip_addr: str = ""
+    port: int = 0
     group_name: str = ""
     store_path_index: int = 0
 

@@ -1,11 +1,12 @@
+import operator
 import os
 import random
 import socket
 from contextlib import contextmanager
 from itertools import chain
-from typing import Generator
+from typing import Callable, Generator
 
-from .exceptions import ConnectionError
+from .exceptions import ConnectionError, ResponseError
 from .utils import logger
 
 
@@ -186,6 +187,33 @@ def tcp_recv_response(conn, bytes_size, buffer_size=4096) -> tuple[bytes, int]:
     except (socket.error, socket.timeout) as e:
         raise ConnectionError("[-] Error: while reading from socket: (%s)" % e.args)
     return (b"".join(recv_buff), total_size)
+
+
+async def tcp_receive(
+    client,
+    bytes_size: int,
+    expected_len: int | None = None,
+    compare: Callable = operator.eq,
+    clsname="Tracker",
+    *,
+    buffer_size=4096,
+) -> tuple[bytes, int]:
+    recv_bs = []
+    total_size = 0
+    while bytes_size > 0:
+        try:
+            response = await client.receive(buffer_size)
+        except Exception as e:
+            logger.exception(e)
+        else:
+            recv_bs.append(response)
+            length = len(response)
+            total_size += length
+            bytes_size -= length
+    if expected_len is not None and not compare(total_size, expected_len):
+        msg = f"[-] Error: {clsname} response length is not match, expect: {expected_len}, actual: {total_size}"
+        raise ResponseError(msg)
+    return b"".join(recv_bs), total_size
 
 
 def tcp_send_data(conn, bytes_stream) -> None:

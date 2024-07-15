@@ -807,11 +807,9 @@ class AsyncDfsClient(BaseClient):
         # https://example.com/group1/M00/00/00/eE0vIWZEgMCAFnaMAAABXbxaFk89563.jpeg
         ```
         """
-        tc = TrackerClient(ConnectionPool(**self.trackers))
-        store_serv = await tc.get_storage_server()
-        # store = StorageClient(*self.random_host(), self.timeout)
+        store_serv = await TrackerClient.get_storage_server(self.random_host())
         store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)  # type:ignore
-        res = await store.upload_buffer(tc, store_serv, content, suffix.lstrip("."))
+        res = await store.upload_buffer(store_serv, content, suffix.lstrip("."))
         uri_path = res["Remote file_id"]  # 'group1/M00/00/00/eE..R458.jpg'
         return self._build_host(res["Storage IP"]) + uri_path
 

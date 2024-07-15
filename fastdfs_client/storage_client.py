@@ -1,4 +1,5 @@
 import errno
+import operator
 import os
 import platform
 import struct
@@ -6,7 +7,7 @@ import sys
 
 import anyio
 
-from .connection import ConnectionPool, tcp_recv_response, tcp_send_data
+from .connection import ConnectionPool, tcp_receive, tcp_recv_response, tcp_send_data
 from .exceptions import (
     ConnectionError,
     DataError,
@@ -33,6 +34,7 @@ from .protols import (
     STORAGE_PROTO_CMD_UPLOAD_FILE,
     STORAGE_PROTO_CMD_UPLOAD_SLAVE_FILE,
     STORAGE_SET_METADATA_FLAG_OVERWRITE,
+    StorageServer,
     fdfs_pack_metadata,
     fdfs_unpack_metadata,
 )
@@ -360,10 +362,9 @@ class StorageClient:
 
     async def upload_buffer(
         self,
-        tracker_client,
-        store_serv,
-        file_buffer,
-        file_ext_name,
+        store_serv: StorageServer,
+        file_buffer: bytes,
+        file_ext_name: str,
     ) -> dict:
         file_size = len(file_buffer)
         # non_slave_fmt |-store_path_index(1)-file_size(8)-file_ext_name(6)-|
@@ -384,25 +385,9 @@ class StorageClient:
             await client.send(file_buffer)
             response = await client.receive(th.header_len())
             th.check_status(response)
-            buffer_size = 4096
-            recv_bs = []
-            total_size = 0
-            bytes_size = th.pkg_len
-            while bytes_size > 0:
-                try:
-                    response = await client.receive(buffer_size)
-                except Exception as e:
-                    logger.exception(e)
-                else:
-                    recv_bs.append(response)
-                    length = len(response)
-                    total_size += length
-                    bytes_size -= length
-            recv_buffer, recv_size = b"".join(recv_bs), total_size
-            if recv_size <= FDFS_GROUP_NAME_MAX_LEN:
-                errmsg = "[-] Error: Storage response length is not match, "
-                errmsg += "expect: %d, actual: %d" % (th.pkg_len, recv_size)
-                raise ResponseError(errmsg)
+            recv_buffer, recv_size = await tcp_receive(
+                client, th.pkg_len, FDFS_GROUP_NAME_MAX_LEN, operator.gt, "Storage"
+            )
             # recv_fmt: |-group_name(16)-remote_file_name(recv_size - 16)-|
             recv_fmt = "!%ds %ds" % (
                 FDFS_GROUP_NAME_MAX_LEN,

@@ -3,12 +3,10 @@ import struct
 from dataclasses import dataclass
 from datetime import datetime
 
-from .connection import tcp_recv_response, tcp_send_data
-from .exceptions import (
-    ConnectionError,
-    DataError,
-    ResponseError,
-)
+import anyio
+
+from .connection import tcp_receive, tcp_recv_response, tcp_send_data
+from .exceptions import ConnectionError, DataError, ResponseError
 from .protols import (
     FDFS_GROUP_NAME_MAX_LEN,
     FDFS_SPACE_SIZE_BASE_INDEX,
@@ -580,25 +578,18 @@ class TrackerClient:
             group_name, filename, TRACKER_PROTO_CMD_SERVICE_QUERY_FETCH_ONE
         )
 
-    async def get_storage_server(self) -> StorageServer:
+    @staticmethod
+    async def get_storage_server(host_info: tuple[str, int]) -> StorageServer:
         """Query storage server for upload, without group name.
         Return: StorageServer object"""
-        # TODO: migrate from connection pool to asyncio
         th = TrackerHeader(cmd=TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE)
-        with self.pool.open_connection() as conn:
-            th.send_header(conn)
-            th.recv_header(conn)
-            if th.status != 0:
-                raise DataError(
-                    "[-] Error: %d, %s" % (th.status, os.strerror(th.status))
-                )
-            recv_buffer, recv_size = tcp_recv_response(conn, th.pkg_len)
-            if recv_size != TRACKER_QUERY_STORAGE_STORE_BODY_LEN:
-                errmsg = (
-                    "[-] Error: Tracker response length is invaild, expect: %d, actual: %d"
-                    % (TRACKER_QUERY_STORAGE_STORE_BODY_LEN, recv_size)
-                )
-                raise ResponseError(errmsg)
+        async with await anyio.connect_tcp(*host_info) as client:
+            await client.send(th.build_header())
+            response = await client.receive(th.header_len())
+            th.check_status(response)
+            recv_buffer, recv_size = await tcp_receive(
+                client, th.pkg_len, TRACKER_QUERY_STORAGE_STORE_BODY_LEN
+            )
         # recv_fmt |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)|
         recv_fmt = "!%ds %ds Q B" % (FDFS_GROUP_NAME_MAX_LEN, IP_ADDRESS_SIZE - 1)
         group, ip, port, path_index = struct.unpack(recv_fmt, recv_buffer)
