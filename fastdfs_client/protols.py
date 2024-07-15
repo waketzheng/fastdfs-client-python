@@ -1,7 +1,10 @@
 import os
 import socket
 import struct
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
+
+import anyio
 
 from .exceptions import ConnectionError, DataError
 
@@ -172,6 +175,13 @@ class StorageServer:
     port: int = 0
     group_name: str = ""
     store_path_index: int = 0
+
+    @asynccontextmanager
+    async def connect_tcp(self):
+        if isinstance(ip_addr := self.ip_addr, bytes):
+            ip_addr = ip_addr.decode()
+        async with await anyio.connect_tcp(ip_addr, self.port) as client:
+            yield client
 
 
 class Struct(struct.Struct):

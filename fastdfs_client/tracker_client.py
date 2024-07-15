@@ -579,19 +579,40 @@ class TrackerClient:
         )
 
     @staticmethod
-    async def get_storage_server(host_info: tuple[str, int]) -> StorageServer:
+    async def get_storage_server(
+        host_info: tuple[str, int], group_name="", filename=""
+    ) -> StorageServer:
         """Query storage server for upload, without group name.
         Return: StorageServer object"""
-        th = TrackerHeader(cmd=TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE)
+        pkg_len = file_name_len = len(filename)
+        if is_delete := bool(file_name_len):
+            cmd = TRACKER_PROTO_CMD_SERVICE_QUERY_UPDATE
+            pkg_len += FDFS_GROUP_NAME_MAX_LEN
+        else:
+            cmd = TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE
+        th = TrackerHeader(cmd=cmd, pkg_len=pkg_len)
         async with await anyio.connect_tcp(*host_info) as client:
             await client.send(th.build_header())
+            expected_len = TRACKER_QUERY_STORAGE_STORE_BODY_LEN
+            if is_delete:
+                expected_len = TRACKER_QUERY_STORAGE_FETCH_BODY_LEN
+                # query_fmt: |-group_name(16)-filename(file_name_len)-|
+                query_fmt = "!%ds %ds" % (FDFS_GROUP_NAME_MAX_LEN, file_name_len)
+                send_buffer = struct.pack(
+                    query_fmt, group_name.encode(), filename.encode()
+                )
+                await client.send(send_buffer)
             await th.verify_header(client)
-            recv_buffer = await tcp_receive(
-                client, th.pkg_len, TRACKER_QUERY_STORAGE_STORE_BODY_LEN
-            )
-        # recv_fmt |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)|
-        recv_fmt = "!%ds %ds Q B" % (FDFS_GROUP_NAME_MAX_LEN, IP_ADDRESS_SIZE - 1)
-        group, ip, port, path_index = struct.unpack(recv_fmt, recv_buffer)
+            recv_buffer = await tcp_receive(client, th.pkg_len, expected_len)
+        if is_delete:
+            # recv_fmt: |-group_name(16)-ip_addr(16)-port(8)-|
+            recv_fmt = "!%ds %ds Q" % (FDFS_GROUP_NAME_MAX_LEN, IP_ADDRESS_SIZE - 1)
+            group, ip, port = struct.unpack(recv_fmt, recv_buffer)
+            path_index = 0
+        else:
+            # recv_fmt |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)|
+            recv_fmt = "!%ds %ds Q B" % (FDFS_GROUP_NAME_MAX_LEN, IP_ADDRESS_SIZE - 1)
+            group, ip, port, path_index = struct.unpack(recv_fmt, recv_buffer)
         return StorageServer(
             group_name=group.strip(b"\x00"),
             ip_addr=ip.strip(b"\x00"),

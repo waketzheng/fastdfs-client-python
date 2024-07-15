@@ -820,19 +820,18 @@ class AsyncDfsClient(BaseClient):
         try:
             _, uri = file.split("://")
         except ValueError:
-            ip_addr, port = self.random_host()
+            host_info = self.random_host()
         else:
             ip_addr, file = uri.split("/", 1)
             maybe_url = False
             if not is_IPv4(ip_addr):
                 ip_addr = self.get_domain_ip(ip_addr)
-            port = self.trackers["port"]
+            host_info = (ip_addr, self.trackers["port"])
         if not (tmp := split_remote_fileid(file, maybe_url=maybe_url)):
             raise DataError("[-] Error: remote_file_id is invalid.(in delete file)")
         group_name, remote_filename = tmp
-        tc = TrackerClient(ConnectionPool(**self.trackers))
-        store_serv = tc.tracker_query_storage_update(group_name, remote_filename)
-        if port != store_serv.port:  # 22122 vs 23000
-            port = store_serv.port
-        store = StorageClient(ip_addr, port, self.timeout)
-        return store.storage_delete_file(tc, store_serv, remote_filename)
+        store_serv = await TrackerClient.get_storage_server(
+            host_info, group_name, remote_filename
+        )
+        store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)
+        return await store.delete_file(store_serv, remote_filename)

@@ -4,8 +4,7 @@ import os
 import platform
 import struct
 import sys
-
-import anyio
+from typing import cast
 
 from .connection import ConnectionPool, tcp_receive, tcp_recv_response, tcp_send_data
 from .exceptions import (
@@ -371,9 +370,7 @@ class StorageClient:
         non_slave_fmt = "!B Q %ds" % FDFS_FILE_EXT_NAME_MAX_LEN
         th = TrackerHeader(cmd=STORAGE_PROTO_CMD_UPLOAD_FILE)
         th.pkg_len = struct.calcsize(non_slave_fmt) + file_size
-        if isinstance(ip_addr := store_serv.ip_addr, bytes):
-            ip_addr = ip_addr.decode()
-        async with await anyio.connect_tcp(ip_addr, store_serv.port) as client:
+        async with store_serv.connect_tcp() as client:
             await client.send(th.build_header())
             send_buffer = struct.pack(
                 non_slave_fmt,
@@ -553,6 +550,31 @@ class StorageClient:
             None,
             file_ext_name,
         )
+
+    async def delete_file(
+        self, store_serv: StorageServer, remote_filename: str | bytes
+    ) -> tuple:
+        """
+        Delete file from storage server.
+        """
+        th = TrackerHeader(cmd=STORAGE_PROTO_CMD_DELETE_FILE)
+        file_name_len = len(remote_filename)
+        th.pkg_len = FDFS_GROUP_NAME_MAX_LEN + file_name_len
+        if isinstance(remote_filename, str):
+            remote_filename = remote_filename.encode()
+        async with store_serv.connect_tcp() as client:
+            await client.send(th.build_header())
+            # del_fmt: |-group_name(16)-filename(len)-|
+            del_fmt = "!%ds %ds" % (FDFS_GROUP_NAME_MAX_LEN, file_name_len)
+            send_buffer = struct.pack(del_fmt, store_serv.group_name, remote_filename)
+            await client.send(send_buffer)
+            await th.verify_header(client)
+        if isinstance(store_serv.group_name, str):
+            group = store_serv.group_name.encode()
+        else:
+            group = cast(bytes, store_serv.group_name)
+        remote_file_id = group + b"/" + cast(bytes, remote_filename)
+        return "Delete file successed.", remote_file_id, store_serv.ip_addr
 
     def storage_delete_file(self, tracker_client, store_serv, remote_filename):
         """
