@@ -4,7 +4,7 @@ import re
 import socket
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Type, TypedDict, cast
+from typing import Annotated, Type, TypedDict, cast, get_type_hints
 
 from .connection import ConnectionPool
 from .exceptions import ConfigError, DataError, ResponseError
@@ -90,10 +90,17 @@ class BaseClient:
             trackers = get_tracker_conf(str(trackers))
         elif isinstance(trackers, tuple | list):
             trackers = Config.create(tuple(trackers))
+        elif isinstance(trackers, dict):
+            self._check_config(trackers)
         self.trackers = cast(dict, trackers)
         self.timeout = self.trackers["timeout"]
         self.ip_mapping = ip_mapping
         self.ssl = ssl
+
+    def _check_config(self, trackers) -> None:
+        expected = get_type_hints(ConfigDict)
+        if missing := set(expected) - set(trackers):
+            raise ConfigError(f"Invalid trackers: {missing=} (expected: {expected})")
 
     def _build_host(self, storage_ip: str) -> str:
         ip_mapping = self.ip_mapping or {}
