@@ -44,17 +44,21 @@ def test_conf_file():
         FastdfsClient(invalid_conf_file)
 
 
-def test_conf_string():
+def test_conf_string_and_dict():
+    conf = {
+        "host_tuple": ("192.168.0.2",),
+        "name": "Tracker Pool",
+        "port": 22122,
+        "timeout": 30,
+    }
     assert (
         FastdfsClient(("192.168.0.2",)).trackers
         == FastdfsClient(["192.168.0.2"]).trackers
-        == {
-            "host_tuple": ("192.168.0.2",),
-            "name": "Tracker Pool",
-            "port": 22122,
-            "timeout": 30,
-        }
+        == conf
     )
+    assert FastdfsClient(conf).trackers == conf
+    with pytest.raises(ConfigError):
+        FastdfsClient({})
 
 
 def test_build_host():
