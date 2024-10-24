@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import configparser
+import contextlib
 import io
 import logging
 import os
@@ -33,15 +34,10 @@ def appromix(size: int | float, base=0) -> str:
 
 def get_file_ext_name(filename: str, double_ext=True) -> str:
     li = filename.split(os.extsep)
-    if len(li) <= 1:
+    if len(li) <= 1 or __os_sep__ in li[-1]:
         return ""
-    else:
-        if li[-1].find(__os_sep__) != -1:
-            return ""
-    if double_ext:
-        if len(li) > 2:
-            if li[-2].find(__os_sep__) == -1:
-                return "%s.%s" % (li[-2], li[-1])
+    if double_ext and len(li) > 2 and __os_sep__ not in li[-2]:
+        return "%s.%s" % (li[-2], li[-1])
     return li[-1]
 
 
@@ -77,7 +73,7 @@ class FastdfsConfigParser(RawConfigParser):
 
         self._default_section = section
 
-    def read(self, filenames):
+    def read(self, filenames, encoding=None):
         if isinstance(filenames, str):
             filenames = [filenames]
 
@@ -97,10 +93,8 @@ class FastdfsConfigParser(RawConfigParser):
     def readfp(self, fp, *args, **kwargs):
         stream = io.StringIO()
 
-        try:
+        with contextlib.suppress(AttributeError):
             stream.name = fp.name
-        except AttributeError:
-            pass
 
         stream.write(f"[{self._default_section}]\n")
         stream.write(fp.read())
@@ -108,7 +102,7 @@ class FastdfsConfigParser(RawConfigParser):
 
         return self._read(stream, stream.name)
 
-    def write(self, fp):
+    def write(self, fp, space_around_delimiters=True):
         # Write the items from the default section manually and then remove them
         # from the data. They'll be re-added later.
         section = str(self._default_section)

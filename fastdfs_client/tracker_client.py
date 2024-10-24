@@ -192,9 +192,8 @@ class StorageInfo:
             self.totalMB = appromix(totalMB, FDFS_SPACE_SIZE_BASE_INDEX)
             self.freeMB = appromix(freeMB, FDFS_SPACE_SIZE_BASE_INDEX)
         except ValueError:
-            raise ResponseError(
-                "[-] Error: disk space overrun, can not represented it."
-            )
+            msg = "[-] Error: disk space overrun, can not represented it."
+            raise ResponseError(msg) from None
         self.join_time = datetime.fromtimestamp(join_time).isoformat()
         self.up_time = datetime.fromtimestamp(up_time).isoformat()
         self.last_source_sync = datetime.fromtimestamp(last_source_sync).isoformat()
@@ -325,7 +324,8 @@ class GroupInfo:
             self.totalMB = appromix(totalMB, FDFS_SPACE_SIZE_BASE_INDEX)
             self.trunk_freeMB = appromix(trunk_freeMB, FDFS_SPACE_SIZE_BASE_INDEX)
         except ValueError:
-            raise DataError("[-] Error disk space overrun, can not represented it.")
+            msg = "[-] Error disk space overrun, can not represented it."
+            raise DataError(msg) from None
 
     def get_fmt_size(self):
         return struct.calcsize(self.fmt)

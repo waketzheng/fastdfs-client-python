@@ -192,10 +192,7 @@ def list_server_func():
         return None
     try:
         group_name = sys.argv[2]
-        if len(sys.argv) > 3:
-            storage_ip = sys.argv[3]
-        else:
-            storage_ip = None
+        storage_ip = sys.argv[3] if len(sys.argv) > 3 else None
         ret_dict = client.list_servers(group_name, storage_ip)
         print("=" * 80)
         print("Group name: %s" % ret_dict["Group name"])
@@ -218,10 +215,7 @@ def upbuffer_func():
         usage()
         return None
     local_filename = sys.argv[2]
-    if len(sys.argv) > 3:
-        ext_name = sys.argv[3]
-    else:
-        ext_name = None
+    ext_name = sys.argv[3] if len(sys.argv) > 3 else None
     # meta_buffer can be null.
     meta_buffer = {"ext_name": "gif", "width": "150px", "height": "80px"}
     try:
@@ -374,10 +368,9 @@ def modifyfile_func():
         return None
     local_filename = sys.argv[2]
     remote_fileid = sys.argv[3]
+    file_offset = 0
     if len(sys.argv) > 4:
         file_offset = int(sys.argv[4])
-    else:
-        file_offset = 0
     try:
         ret_dict = client.modify_by_filename(local_filename, remote_fileid, file_offset)
         for key in ret_dict:
@@ -394,10 +387,9 @@ def modifybuffer_func():
         return None
     local_filename = sys.argv[2]
     remote_fileid = sys.argv[3]
+    file_offset = 0
     if len(sys.argv) > 4:
         file_offset = int(sys.argv[4])
-    else:
-        file_offset = 0
     try:
         with open(local_filename, "rb") as f:
             filebuffer = f.read()

@@ -1,3 +1,4 @@
+import contextlib
 import os
 import random
 import re
@@ -68,7 +69,7 @@ def get_tracker_conf(conf_path="client.conf") -> dict:
         tracker["name"] = "Tracker Pool"
     except Exception as e:
         logger.exception(e)
-        raise ConfigError(str(e))
+        raise ConfigError(str(e)) from e
     return tracker
 
 
@@ -414,7 +415,7 @@ class FastdfsClient(BaseClient):
             )
         except Exception as e:
             logger.exception(e)
-            raise DataError(str(e))
+            raise DataError(str(e)) from e
         ret_dict["Status"] = "Upload slave file successed."
         return ret_dict
 
@@ -569,8 +570,10 @@ class FastdfsClient(BaseClient):
         if not tmp:
             raise DataError("[-] Error: remote_file_id is invalid.(in download file)")
         group_name, remote_filename = tmp
-        if not offset:
-            file_offset = int(offset)
+        file_offset = 0
+        if offset:
+            with contextlib.suppress(TypeError, ValueError):
+                file_offset = int(offset)
         if not down_bytes:
             download_bytes = int(down_bytes)
         tc = TrackerClient(self.tracker_pool)
@@ -598,8 +601,10 @@ class FastdfsClient(BaseClient):
         if not tmp:
             raise DataError("[-] Error: remote_file_id is invalid.(in download file)")
         group_name, remote_filename = tmp
-        if not offset:
-            file_offset = int(offset)
+        file_offset = 0
+        if offset:
+            with contextlib.suppress(TypeError, ValueError):
+                file_offset = int(offset)
         if not down_bytes:
             download_bytes = int(down_bytes)
         tc = TrackerClient(self.tracker_pool)
@@ -779,10 +784,10 @@ class FastdfsClient(BaseClient):
         if not tmp:
             raise DataError("[-] Error: remote_fileid is invalid.(modify)")
         group_name, appender_filename = tmp
-        if not offset:
-            file_offset = int(offset)
-        else:
-            file_offset = 0
+        file_offset = 0
+        if offset:
+            with contextlib.suppress(TypeError, ValueError):
+                file_offset = int(offset)
         tc = TrackerClient(self.tracker_pool)
         store_serv = tc.tracker_query_storage_update(group_name, appender_filename)
         store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)
@@ -808,10 +813,10 @@ class FastdfsClient(BaseClient):
         if not tmp:
             raise DataError("[-] Error: remote_fileid is invalid.(modify)")
         group_name, appender_filename = tmp
-        if not offset:
-            file_offset = int(offset)
-        else:
-            file_offset = 0
+        file_offset = 0
+        if offset:
+            with contextlib.suppress(TypeError, ValueError):
+                file_offset = int(offset)
         tc = TrackerClient(self.tracker_pool)
         store_serv = tc.tracker_query_storage_update(group_name, appender_filename)
         store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)
@@ -838,10 +843,10 @@ class FastdfsClient(BaseClient):
         if not tmp:
             raise DataError("[-] Error: remote_fileid is invalid.(modify)")
         group_name, appender_filename = tmp
-        if not offset:
-            file_offset = int(offset)
-        else:
-            file_offset = 0
+        file_offset = 0
+        if offset:
+            with contextlib.suppress(TypeError, ValueError):
+                file_offset = int(offset)
         tc = TrackerClient(self.tracker_pool)
         store_serv = tc.tracker_query_storage_update(group_name, appender_filename)
         store = StorageClient(store_serv.ip_addr, store_serv.port, self.timeout)

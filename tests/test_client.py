@@ -65,17 +65,17 @@ def test_build_host():
     domain = "dfs.waketzheng.top"
     ip = "120.77.47.33"
     client = FastdfsClient([domain])
-    client._build_host(ip) == f"https://{domain}/"
+    assert client._build_host(ip) == f"https://{domain}/"
     client2 = FastdfsClient([domain], ssl=False)
-    client2._build_host(ip) == f"http://{domain}/"
+    assert client2._build_host(ip) == f"http://{domain}/"
     client3 = FastdfsClient([ip], ssl=False)
-    client3._build_host(ip) == f"http://{ip}/"
+    assert client3._build_host(ip) == f"http://{ip}/"
     client4 = FastdfsClient([ip])
-    client4._build_host(ip) == f"http://{ip}/"
+    assert client4._build_host(ip) == f"http://{ip}/"
     client5 = FastdfsClient([ip], ip_mapping={ip: domain})
-    client5._build_host(ip) == f"https://{domain}/"
+    assert client5._build_host(ip) == f"https://{domain}/"
     client6 = FastdfsClient([domain], ip_mapping={ip: domain})
-    client6._build_host(ip) == f"https://{domain}/"
+    assert client6._build_host(ip) == f"https://{domain}/"
 
 
 def test_upload_url():

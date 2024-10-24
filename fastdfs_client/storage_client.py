@@ -47,6 +47,19 @@ from .utils import (
 __os_sep__ = "/" if platform.system() == "Windows" else os.sep
 
 
+def _send_data(conn, fp, buffer_size) -> int:
+    try:
+        send_buffer = fp.read(buffer_size)
+        send_size = len(send_buffer)
+        if send_size != 0:
+            tcp_send_data(conn, send_buffer)
+        return send_size
+    except ConnectionError as e:
+        raise ConnectionError("[-] Error while uploading file(%s)." % e.args) from e
+    except IOError as e:
+        raise DataError("[-] Error while reading local file(%s)." % e.args) from e
+
+
 def tcp_send_file(conn, filename, buffer_size=1024):
     """
     Send file to server, and split into multiple pkgs while sending.
@@ -57,19 +70,12 @@ def tcp_send_file(conn, filename, buffer_size=1024):
     @Return int: file size if success else raise ConnectionError.
     """
     file_size = 0
-    with open(filename, "rb") as f:
+    with open(filename, "rb") as fp:
         while 1:
-            try:
-                send_buffer = f.read(buffer_size)
-                send_size = len(send_buffer)
-                if send_size == 0:
-                    break
-                tcp_send_data(conn, send_buffer)
+            if send_size := _send_data(conn, fp, buffer_size):
                 file_size += send_size
-            except ConnectionError as e:
-                raise ConnectionError("[-] Error while uploading file(%s)." % e.args)
-            except IOError as e:
-                raise DataError("[-] Error while reading local file(%s)." % e.args)
+            else:
+                break
     return file_size
 
 
@@ -135,9 +141,11 @@ def tcp_recv_file(conn, local_filename, file_size, buffer_size=1024):
                     f.flush()
                     flush_size = 0
             except ConnectionError as e:
-                raise ConnectionError("[-] Error: while downloading file(%s)." % e.args)
+                msg = "[-] Error: while downloading file(%s)." % e.args
+                raise ConnectionError(msg) from e
             except IOError as e:
-                raise DataError("[-] Error: while writting local file(%s)." % e.args)
+                msg = "[-] Error: while writting local file(%s)." % e.args
+                raise DataError(msg) from e
     return total_file_size
 
 
@@ -269,9 +277,8 @@ class StorageClient:
                 send_file_size = tcp_send_file_ex(store_conn, file_buffer)
             th.recv_header(store_conn)
             if th.status != 0:
-                raise DataError(
-                    "[-] Error: %d, %s" % (th.status, os.strerror(th.status))
-                )
+                msg = "[-] Error: %d, %s" % (th.status, os.strerror(th.status))
+                raise DataError(msg)
             recv_buffer, recv_size = tcp_recv_response(store_conn, th.pkg_len)
             if recv_size <= FDFS_GROUP_NAME_MAX_LEN:
                 errmsg = "[-] Error: Storage response length is not match, "
@@ -301,16 +308,10 @@ class StorageClient:
             + remote_filename,
             "Status": "Upload successed.",
             "Local file name": file_buffer
-            if (
-                upload_type == FDFS_UPLOAD_BY_FILENAME
-                or upload_type == FDFS_UPLOAD_BY_FILE
-            )
+            if upload_type in (FDFS_UPLOAD_BY_FILENAME, FDFS_UPLOAD_BY_FILE)
             else "",
             "Uploaded size": appromix(send_file_size)
-            if (
-                upload_type == FDFS_UPLOAD_BY_FILENAME
-                or upload_type == FDFS_UPLOAD_BY_FILE
-            )
+            if upload_type in (FDFS_UPLOAD_BY_FILENAME, FDFS_UPLOAD_BY_FILE)
             else appromix(len(file_buffer)),
             "Storage IP": store_serv.ip_addr,
         }
@@ -748,8 +749,6 @@ class StorageClient:
             th.recv_header(conn)
             if th.status != 0:
                 ret = th.status
-        except:
-            raise
         finally:
             self.pool.release(conn)
         return ret
@@ -779,8 +778,6 @@ class StorageClient:
             if th.pkg_len == 0:
                 ret_dict = {}
             meta_buffer, recv_size = tcp_recv_response(store_conn, th.pkg_len)
-        except:
-            raise
         finally:
             self.pool.release(store_conn)
         ret_dict = fdfs_unpack_metadata(meta_buffer)
@@ -820,8 +817,6 @@ class StorageClient:
                 raise DataError(
                     "[-] Error: %d, %s" % (th.status, os.strerror(th.status))
                 )
-        except:
-            raise
         finally:
             self.pool.release(store_conn)
         ret_dict = {}
@@ -897,8 +892,6 @@ class StorageClient:
                 raise DataError(
                     "[-] Error: %d, %s" % (th.status, os.strerror(th.status))
                 )
-        except:
-            raise
         finally:
             self.pool.release(store_conn)
         ret_dict = {}
@@ -948,8 +941,6 @@ class StorageClient:
                 raise DataError(
                     "[-] Error: %d, %s" % (th.status, os.strerror(th.status))
                 )
-        except:
-            raise
         finally:
             self.pool.release(store_conn)
         ret_dict = {}

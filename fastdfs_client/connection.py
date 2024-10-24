@@ -34,7 +34,7 @@ class Connection:
         try:
             self._sock = self._connect()
         except socket.error as e:
-            raise ConnectionError(self._errormessage(e))
+            raise ConnectionError(self._errormessage(e)) from e
         # print '[+] Create a connection success.'
         # print '\tLocal address is %s:%s.' % self._sock.getsockname()
         # print '\tRemote address is %s:%s' % (self.remote_addr, self.remote_port)
@@ -57,7 +57,7 @@ class Connection:
         try:
             self._sock.close()
         except socket.error as e:
-            raise ConnectionError(self._errormessage(e))
+            raise ConnectionError(self._errormessage(e)) from e
         self._sock = None
 
     def get_sock(self):
@@ -185,7 +185,8 @@ def tcp_recv_response(conn, bytes_size, buffer_size=4096) -> tuple[bytes, int]:
             total_size += len(resp)
             bytes_size -= len(resp)
     except (socket.error, socket.timeout) as e:
-        raise ConnectionError("[-] Error: while reading from socket: (%s)" % e.args)
+        msg = "[-] Error: while reading from socket: (%s)" % e.args
+        raise ConnectionError(msg) from e
     return (b"".join(recv_buff), total_size)
 
 
@@ -227,4 +228,5 @@ def tcp_send_data(conn, bytes_stream) -> None:
     try:
         conn._sock.sendall(bytes_stream)
     except (socket.error, socket.timeout) as e:
-        raise ConnectionError("[-] Error: while writting to socket: (%s)" % e.args)
+        msg = "[-] Error: while writting to socket: (%s)" % e.args
+        raise ConnectionError(msg) from e

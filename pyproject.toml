@@ -13,10 +13,10 @@ anyio = ">=4.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
-fast-dev-cli = "^0.9.1"
-pre-commit = "^3.7.1"
-trio = "^0.26.0"
-httpx = "^0.27.0"
+fast-dev-cli = "^0.10.1"
+pre-commit = "^4.0.1"
+trio = "^0.27.0"
+httpx = "^0.27.2"
 
 [tool.mypy]
 pretty = true

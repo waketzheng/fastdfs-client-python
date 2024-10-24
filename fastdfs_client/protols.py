@@ -225,7 +225,8 @@ class TrackerHeader:
         try:
             conn._sock.sendall(header)
         except (socket.error, socket.timeout) as e:
-            raise ConnectionError("[-] Error: while writting to socket: %s" % (e.args,))
+            msg = "[-] Error: while writting to socket: %s" % (e.args,)
+            raise ConnectionError(msg) from e
 
     def recv_header(self, conn) -> None:
         """Receive response from server.
@@ -234,9 +235,8 @@ class TrackerHeader:
         try:
             header = conn._sock.recv(self.header_len())
         except (socket.error, socket.timeout) as e:
-            raise ConnectionError(
-                "[-] Error: while reading from socket: %s" % (e.args,)
-            )
+            msg = "[-] Error: while reading from socket: %s" % (e.args,)
+            raise ConnectionError(msg) from e
         self._unpack(header)
 
     async def verify_header(self, client) -> None:
