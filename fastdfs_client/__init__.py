@@ -1,8 +1,6 @@
-import importlib.metadata as importlib_metadata
-
 from .client import AsyncDfsClient, FastdfsClient
 
-__version__ = importlib_metadata.version(__name__)
+__version__ = "1.2.2"
 VERSION = tuple(map(int, __version__.split(".")))
 
 
