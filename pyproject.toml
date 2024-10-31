@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fastdfs-client"
-version = "1.2.1"
+version = "0" # pipx inject poetry poetry-plugin-version
 description = "Python Implement for FastDFS Client"
 authors = ["Waket Zheng <waketzheng@gmail.com>"]
 readme = "README.md"
@@ -29,3 +29,6 @@ check_untyped_defs = true
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry-plugin-version]
+source = "init"
