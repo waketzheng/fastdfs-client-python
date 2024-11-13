@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import os
 import random
@@ -5,7 +7,7 @@ import re
 import socket
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Type, TypedDict, cast, get_type_hints
+from typing import Annotated, Type, TypedDict, Union, cast, get_type_hints
 
 from .connection import ConnectionPool
 from .exceptions import ConfigError, DataError, ResponseError
@@ -73,11 +75,11 @@ def get_tracker_conf(conf_path="client.conf") -> dict:
     return tracker
 
 
-TrackersConfType = (
-    Annotated[str | Path, "filename of trackers.conf"]
-    | Annotated[dict | ConfigDict, "Config of trackers"]
-    | Annotated[tuple[str, ...] | list[str], "IP list or domain list"]
-)
+TrackersConfType = Union[
+    Annotated[Union[str, Path], "filename of trackers.conf"],
+    Annotated[Union[dict, ConfigDict], "Config of trackers"],
+    Annotated[Union[tuple[str, ...], list[str]], "IP list or domain list"],
+]
 
 
 class BaseClient:
@@ -87,9 +89,9 @@ class BaseClient:
         ip_mapping: Annotated[dict[str, str], "ip: domain"] | None = None,
         ssl: bool = True,
     ) -> None:
-        if isinstance(trackers, str | Path):
+        if isinstance(trackers, (str, Path)):
             trackers = get_tracker_conf(str(trackers))
-        elif isinstance(trackers, tuple | list):
+        elif isinstance(trackers, (tuple, list)):
             trackers = Config.create(tuple(trackers))
         elif isinstance(trackers, dict):
             self._check_config(trackers)

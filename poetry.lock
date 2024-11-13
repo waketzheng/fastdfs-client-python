@@ -884,4 +884,4 @@ aio = ["anyio"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "3dcfcd6162a198a4769feee2dfd7b44f340fb419b6ceb16c333c22a65e632d45"
+content-hash = "f88b69f89dd1bcf8f0740b921be15641e26beebc2e45ad210815b7b46b83e956"
