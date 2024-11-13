@@ -34,9 +34,9 @@ fdfs_client.exceptions.ResponseError: [-] Error: Tracker response length is inva
 
 ## Requires
 
-- Python3.10+ (No other dependence)
+- Python3.9+ (No other dependence)
 
-For Python3.8/Python3.9, use https://github.com/waketzheng/fastdfs-client-python/tree/1.0.1
+For Python3.8, use https://github.com/waketzheng/fastdfs-client-python/tree/1.0.1
 
 ## Install
 

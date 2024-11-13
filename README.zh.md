@@ -2,7 +2,7 @@
 
 FastDFS的Python客户端，支持最新版V6.12（截至2024.05.15）
 
-要求Python3.10+
+要求Python3.9+
 
 [English](./README.md) | **中文**
 
