@@ -20,7 +20,7 @@ RE_IP = re.compile(r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
 
 
 def is_IPv4(value: str) -> bool:
-    return bool(RE_IP.match(value))
+    return RE_IP.match(value) is not None
 
 
 class ConfigDict(TypedDict):
@@ -60,11 +60,13 @@ def get_tracker_conf(conf_path="client.conf") -> dict:
         timeout = cf.getint("__config__", "connect_timeout")
         tracker_list = cf.get("__config__", "tracker_server")
         if isinstance(tracker_list, str):
-            tracker_list = [tracker_list]
-        tracker_ip_list = []
-        for tr in tracker_list:
-            tracker_ip, tracker_port = tr.split(":")
-            tracker_ip_list.append(tracker_ip)
+            tracker_ip, tracker_port = tracker_list.split(":")
+            tracker_ip_list = [tracker_ip]
+        else:
+            tracker_ip_list = []
+            for tr in tracker_list:
+                tracker_ip, tracker_port = tr.split(":")
+                tracker_ip_list.append(tracker_ip)
         tracker["host_tuple"] = tuple(tracker_ip_list)
         tracker["port"] = int(tracker_port)
         tracker["timeout"] = timeout

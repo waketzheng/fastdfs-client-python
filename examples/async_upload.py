@@ -1,8 +1,7 @@
 #!/usr/bin/env python
+import asyncio
 import sys
 from pathlib import Path
-
-import anyio
 
 from fastdfs_client import FastdfsClient
 
@@ -21,4 +20,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    anyio.run(main)
+    asyncio.run(main())

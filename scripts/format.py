@@ -8,17 +8,17 @@ Usage:
 """
 
 import os
-import shlex
-import subprocess
 import sys
-from pathlib import Path
 
-CMD = "fast lint"
-TOOL = ("poetry", "pdm", "")[0]
-work_dir = Path(__file__).parent.resolve().parent
-if Path.cwd() != work_dir:
-    os.chdir(str(work_dir))
+CMD = "fast lint --skip-mypy"
+TOOL = ("poetry", "pdm", "uv", "")[0]
 
+parent = os.path.abspath(os.path.dirname(__file__))
+work_dir = os.path.dirname(parent)
+if os.getcwd() != work_dir:
+    os.chdir(work_dir)  # 确保位于项目根目录（pyproject.toml所在目录）
+
+# 带工具前缀，以便未激活虚拟环境时，也能执行该脚本
 cmd = (TOOL and f"{TOOL} run ") + CMD
-r = subprocess.run(shlex.split(cmd), env=dict(os.environ, SKIP_MYPY="1"))
-sys.exit(None if r.returncode == 0 else 1)
+if os.system(cmd) != 0:
+    sys.exit(1)
