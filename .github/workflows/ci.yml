@@ -35,6 +35,7 @@ jobs:
           python -m pip install --upgrade pip poetry
           poetry config virtualenvs.create false
           poetry self add poetry-plugin-version
+      - uses: astral-sh/ruff-action@v3
       - name: Install requirements
         run: poetry install
       - name: Check code style and Type Hint
