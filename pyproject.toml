@@ -11,6 +11,7 @@ requires-python = ">=3.9"
 
 [tool.poetry]
 version = "0"  # Managed by poetry-plugin-version
+packages = [{ include = "fastdfs_client" }]
 
 [project.optional-dependencies]
 aio = ["anyio (>=4.0.0,<5.0.0)"]
