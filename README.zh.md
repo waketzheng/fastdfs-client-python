@@ -6,6 +6,11 @@ FastDFS的Python客户端，支持最新版V6.12（截至2024.05.15）
 
 [English](./README.md) | **中文**
 
+## 🚨 WARNING: DEPRECATED 🚨
+
+2025-03-28
+项目已停止维护，建议有储存需求的，采用其它工具。（BTW：minio是一个不错的选择，很容易上手）
+
 ## 安装
 
 ```bash

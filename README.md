@@ -12,6 +12,10 @@ FastDFS Python client
 
 **English** | [中文](./README.zh.md)
 
+## 🚨 WARNING: DEPRECATED 🚨
+
+This project is deprecated. You should not use it. And if you use it for existing libraries, you should migrate to other projects.
+
 ## Motivation
 
 Base on:
