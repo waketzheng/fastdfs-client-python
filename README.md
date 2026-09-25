@@ -14,7 +14,7 @@ FastDFS Python client
 
 ## 🚨 WARNING: DEPRECATED 🚨
 
-This project is deprecated. You should not use it. And if you use it for existing libraries, you should migrate to other projects.
+This project is deprecated. Move to https://github.com/waketzheng/fastdfs-client
 
 ## Motivation
 
